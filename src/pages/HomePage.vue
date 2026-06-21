@@ -4,10 +4,11 @@ import GroupSortPanel from '@/components/GroupSortPanel.vue'
 import CardLayout from '@/components/CardLayout.vue'
 import PrintPreview from '@/components/PrintPreview.vue'
 import ScenarioPreview from '@/components/ScenarioPreview.vue'
+import DrillDrill from '@/components/DrillDrill.vue'
 import { ref } from 'vue'
-import { BookOpen, Layers, LayoutGrid, Printer, Zap } from 'lucide-vue-next'
+import { BookOpen, Layers, LayoutGrid, Printer, Zap, PhoneCall } from 'lucide-vue-next'
 
-const activeTab = ref<'input' | 'group' | 'layout' | 'print' | 'scenario'>('input')
+const activeTab = ref<'input' | 'group' | 'layout' | 'print' | 'scenario' | 'drill'>('input')
 
 const tabs = [
   { key: 'input' as const, label: '联系人录入', icon: BookOpen },
@@ -15,6 +16,7 @@ const tabs = [
   { key: 'layout' as const, label: '卡片排版', icon: LayoutGrid },
   { key: 'print' as const, label: '打印预览', icon: Printer },
   { key: 'scenario' as const, label: '场景预演', icon: Zap },
+  { key: 'drill' as const, label: '应急演练', icon: PhoneCall },
 ]
 </script>
 
@@ -83,6 +85,10 @@ const tabs = [
 
         <div class="lg:col-span-12" v-show="activeTab === 'scenario'">
           <ScenarioPreview />
+        </div>
+
+        <div class="lg:col-span-12" v-show="activeTab === 'drill'">
+          <DrillDrill />
         </div>
       </div>
     </main>

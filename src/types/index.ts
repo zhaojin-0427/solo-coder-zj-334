@@ -90,6 +90,68 @@ export const DEFAULT_SCENARIOS: Scenario[] = [
   },
 ]
 
+export type ContactResult = 'connected' | 'no-answer' | 'wrong-number' | 'call-later' | 'help-done'
+
+export const CONTACT_RESULT_LABELS: Record<ContactResult, string> = {
+  'connected': '已接通',
+  'no-answer': '无人接听',
+  'wrong-number': '号码错误',
+  'call-later': '稍后再拨',
+  'help-done': '已完成求助',
+}
+
+export const CONTACT_RESULT_COLORS: Record<ContactResult, string> = {
+  'connected': '#7BAE7F',
+  'no-answer': '#E8A838',
+  'wrong-number': '#D94F4F',
+  'call-later': '#5B9BD5',
+  'help-done': '#5C9460',
+}
+
+export interface DrillContactAttempt {
+  contactId: string
+  contactName: string
+  contactPhone: string
+  contactGroup: ContactGroup
+  contactNote: string
+  result: ContactResult | null
+  note: string
+  timestamp: number
+}
+
+export type DrillStatus = 'selecting' | 'running' | 'finished'
+
+export interface DrillSession {
+  id: string
+  scenarioId: string
+  scenarioName: string
+  status: DrillStatus
+  queue: DrillContactAttempt[]
+  currentIndex: number
+  startedAt: number
+  elapsedSeconds: number
+  finishedAt: number | null
+}
+
+export interface DrillHistoryRecord {
+  id: string
+  scenarioId: string
+  scenarioName: string
+  attempts: DrillContactAttempt[]
+  startedAt: number
+  finishedAt: number
+  elapsedSeconds: number
+  summary: string
+}
+
+export const DRILL_MODES = [
+  { id: 'emergency', name: '突发急救', icon: 'heart', groupOrder: ['hospital', 'family', 'community', 'pharmacy', 'neighbor', 'repair'] as ContactGroup[] },
+  { id: 'repair', name: '设备维修', icon: 'wrench', groupOrder: ['repair', 'community', 'neighbor', 'family', 'pharmacy', 'hospital'] as ContactGroup[] },
+  { id: 'pharmacy', name: '购药求助', icon: 'pill', groupOrder: ['pharmacy', 'hospital', 'family', 'community', 'neighbor', 'repair'] as ContactGroup[] },
+  { id: 'daily', name: '日常联络', icon: 'phone', groupOrder: ['family', 'neighbor', 'community', 'pharmacy', 'hospital', 'repair'] as ContactGroup[] },
+  { id: 'custom', name: '自定义场景', icon: 'settings', groupOrder: ['family', 'neighbor', 'community', 'hospital', 'repair', 'pharmacy'] as ContactGroup[] },
+]
+
 export function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 9)
 }

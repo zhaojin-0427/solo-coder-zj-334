@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
-import type { Contact, ContactGroup, LayoutConfig, CardFormat, FontSize } from '@/types'
-import { generateId, GROUP_LABELS, GROUP_COLORS } from '@/types'
+import type { Contact, ContactGroup, LayoutConfig, CardFormat, FontSize, DrillSession, DrillHistoryRecord, DrillContactAttempt, ContactResult } from '@/types'
+import { generateId, GROUP_LABELS, GROUP_COLORS, CONTACT_RESULT_LABELS, DRILL_MODES } from '@/types'
 
 const STORAGE_KEY_CONTACTS = 'phonebook-contacts'
 const STORAGE_KEY_LAYOUT = 'phonebook-layout'
@@ -150,5 +150,254 @@ export const useLayoutStore = defineStore('layout', () => {
     setAccentColor,
     setGroupOrder,
     resetLayout,
+  }
+})
+
+const STORAGE_KEY_DRILL_SESSION = 'phonebook-drill-session'
+const STORAGE_KEY_DRILL_HISTORY = 'phonebook-drill-history'
+const MAX_HISTORY_RECORDS = 10
+
+export const useDrillStore = defineStore('drill', () => {
+  const session = ref<DrillSession | null>(loadFromStorage<DrillSession | null>(STORAGE_KEY_DRILL_SESSION, null))
+  const history = ref<DrillHistoryRecord[]>(loadFromStorage<DrillHistoryRecord[]>(STORAGE_KEY_DRILL_HISTORY, []))
+
+  let timerHandle: ReturnType<typeof setInterval> | null = null
+
+  const hasActiveSession = computed(() => session.value !== null && session.value.status === 'running')
+
+  function buildQueue(contacts: Contact[], groupOrder: ContactGroup[]): DrillContactAttempt[] {
+    const grouped: Record<ContactGroup, Contact[]> = {
+      family: [], neighbor: [], community: [], hospital: [], repair: [], pharmacy: [],
+    }
+    for (const c of contacts) {
+      grouped[c.group].push(c)
+    }
+    for (const key of Object.keys(grouped) as ContactGroup[]) {
+      grouped[key].sort((a, b) => {
+        if (a.isEmergency !== b.isEmergency) return a.isEmergency ? -1 : 1
+        return a.priority - b.priority
+      })
+    }
+    const queue: DrillContactAttempt[] = []
+    const seen = new Set<string>()
+    for (const group of groupOrder) {
+      for (const c of grouped[group]) {
+        if (!seen.has(c.id)) {
+          seen.add(c.id)
+          queue.push({
+            contactId: c.id,
+            contactName: c.name,
+            contactPhone: c.phone,
+            contactGroup: c.group,
+            contactNote: c.note,
+            result: null,
+            note: '',
+            timestamp: 0,
+          })
+        }
+      }
+    }
+    return queue
+  }
+
+  function startDrill(scenarioId: string, contacts: Contact[], customGroupOrder?: ContactGroup[]) {
+    stopTimer()
+    const mode = DRILL_MODES.find(m => m.id === scenarioId)
+    const groupOrder = customGroupOrder ?? mode?.groupOrder ?? DRILL_MODES[0].groupOrder
+    const scenarioName = mode?.name ?? '自定义场景'
+    const queue = buildQueue(contacts, groupOrder)
+    if (queue.length === 0) return
+    session.value = {
+      id: generateId(),
+      scenarioId,
+      scenarioName,
+      status: 'running',
+      queue,
+      currentIndex: 0,
+      startedAt: Date.now(),
+      elapsedSeconds: 0,
+      finishedAt: null,
+    }
+    startTimer()
+  }
+
+  function startTimer() {
+    stopTimer()
+    timerHandle = setInterval(() => {
+      if (session.value && session.value.status === 'running') {
+        session.value.elapsedSeconds++
+      }
+    }, 1000)
+  }
+
+  function stopTimer() {
+    if (timerHandle) {
+      clearInterval(timerHandle)
+      timerHandle = null
+    }
+  }
+
+  function markResult(result: ContactResult) {
+    if (!session.value) return
+    const attempt = session.value.queue[session.value.currentIndex]
+    if (!attempt) return
+    attempt.result = result
+    attempt.timestamp = Date.now()
+
+    if (result === 'no-answer' || result === 'wrong-number') {
+      const nextIdx = session.value.currentIndex + 1
+      if (nextIdx < session.value.queue.length) {
+        session.value.currentIndex = nextIdx
+      } else {
+        finishDrill()
+      }
+    } else if (result === 'help-done') {
+      finishDrill()
+    } else if (result === 'connected' || result === 'call-later') {
+      const nextIdx = session.value.currentIndex + 1
+      if (nextIdx < session.value.queue.length) {
+        session.value.currentIndex = nextIdx
+      } else {
+        finishDrill()
+      }
+    }
+  }
+
+  function updateAttemptNote(note: string) {
+    if (!session.value) return
+    const attempt = session.value.queue[session.value.currentIndex]
+    if (attempt) attempt.note = note
+  }
+
+  function skipToNext() {
+    if (!session.value) return
+    const nextIdx = session.value.currentIndex + 1
+    if (nextIdx < session.value.queue.length) {
+      session.value.currentIndex = nextIdx
+    }
+  }
+
+  function resetDrill() {
+    stopTimer()
+    session.value = null
+  }
+
+  function finishDrill() {
+    if (!session.value) return
+    stopTimer()
+    session.value.status = 'finished'
+    session.value.finishedAt = Date.now()
+  }
+
+  function saveToHistory() {
+    if (!session.value || session.value.status !== 'finished') return
+    const s = session.value
+    const attempts = s.queue.filter(a => a.result !== null)
+    const connected = attempts.filter(a => a.result === 'connected' || a.result === 'help-done').length
+    const failed = attempts.filter(a => a.result === 'no-answer' || a.result === 'wrong-number').length
+    const later = attempts.filter(a => a.result === 'call-later').length
+
+    const lines: string[] = []
+    lines.push(`演练模式：${s.scenarioName}`)
+    lines.push(`共尝试 ${attempts.length} 位联系人，已接通 ${connected} 位，未接通 ${failed} 位，稍后再拨 ${later} 位。`)
+
+    const helpDone = attempts.find(a => a.result === 'help-done')
+    if (helpDone) {
+      lines.push(`✓ ${helpDone.contactName} 已完成求助。`)
+    }
+
+    const noAnswerIds = attempts.filter(a => a.result === 'no-answer' || a.result === 'wrong-number').map(a => a.contactName)
+    if (noAnswerIds.length > 0) {
+      lines.push(`⚠ ${noAnswerIds.join('、')} 未能联系上，建议后续跟进。`)
+    }
+
+    const callLaterNames = attempts.filter(a => a.result === 'call-later').map(a => a.contactName)
+    if (callLaterNames.length > 0) {
+      lines.push(`⏳ ${callLaterNames.join('、')} 需要稍后再拨。`)
+    }
+
+    const unattempted = s.queue.filter(a => a.result === null)
+    if (unattempted.length > 0) {
+      lines.push(`未联系：${unattempted.map(a => a.contactName).join('、')}。`)
+    }
+
+    const record: DrillHistoryRecord = {
+      id: s.id,
+      scenarioId: s.scenarioId,
+      scenarioName: s.scenarioName,
+      attempts: [...attempts],
+      startedAt: s.startedAt,
+      finishedAt: s.finishedAt ?? Date.now(),
+      elapsedSeconds: s.elapsedSeconds,
+      summary: lines.join('\n'),
+    }
+
+    history.value.unshift(record)
+    if (history.value.length > MAX_HISTORY_RECORDS) {
+      history.value = history.value.slice(0, MAX_HISTORY_RECORDS)
+    }
+
+    session.value = null
+  }
+
+  function deleteHistoryRecord(id: string) {
+    history.value = history.value.filter(r => r.id !== id)
+  }
+
+  function clearAllHistory() {
+    history.value = []
+  }
+
+  function recoverSession(contacts: Contact[]) {
+    if (!session.value) return
+    if (session.value.status === 'running') {
+      const currentId = session.value.queue[session.value.currentIndex]?.contactId
+      const stillExists = contacts.some(c => c.id === currentId)
+      if (!stillExists) {
+        let found = false
+        for (let i = session.value.currentIndex + 1; i < session.value.queue.length; i++) {
+          if (contacts.some(c => c.id === session.value!.queue[i].contactId)) {
+            session.value.currentIndex = i
+            found = true
+            break
+          }
+        }
+        if (!found) {
+          finishDrill()
+          return
+        }
+      }
+      session.value.queue = session.value.queue.map(a => {
+        const live = contacts.find(c => c.id === a.contactId)
+        if (!live) return { ...a, contactName: a.contactName + '（已删除）', contactPhone: a.contactPhone }
+        return {
+          ...a,
+          contactName: live.name,
+          contactPhone: live.phone,
+          contactGroup: live.group,
+          contactNote: live.note,
+        }
+      })
+      startTimer()
+    }
+  }
+
+  watch(session, (val) => saveToStorage(STORAGE_KEY_DRILL_SESSION, val), { deep: true })
+  watch(history, (val) => saveToStorage(STORAGE_KEY_DRILL_HISTORY, val), { deep: true })
+
+  return {
+    session,
+    history,
+    hasActiveSession,
+    startDrill,
+    markResult,
+    updateAttemptNote,
+    skipToNext,
+    resetDrill,
+    finishDrill,
+    saveToHistory,
+    deleteHistoryRecord,
+    clearAllHistory,
+    recoverSession,
   }
 })
