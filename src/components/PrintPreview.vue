@@ -130,7 +130,15 @@ async function exportPDF() {
                 <h3 :class="fontSizeConfig.group" class="font-bold">应急联系卡</h3>
               </div>
               <div :class="fontSizeConfig.base" class="p-3">
-                <div class="grid grid-cols-2 gap-3">
+                <div v-if="emergencyOnlyGroups.length === 0" class="text-center py-6">
+                  <div class="text-warm-400" :class="fontSizeConfig.base">
+                    暂无紧急联系人
+                  </div>
+                  <div class="text-warm-300 text-sm mt-2">
+                    请在联系人录入中标记紧急联系人
+                  </div>
+                </div>
+                <div v-else class="grid grid-cols-2 gap-3">
                   <div v-for="group in emergencyOnlyGroups" :key="group">
                     <div
                       class="rounded px-2 py-0.5 mb-1 font-bold text-white text-center"
@@ -281,7 +289,15 @@ async function exportPDF() {
             <h3 :class="fontSizeConfig.group" class="font-bold">应急联系卡</h3>
           </div>
           <div :class="fontSizeConfig.base" class="p-3">
-            <div class="grid grid-cols-2 gap-3">
+            <div v-if="emergencyOnlyGroups.length === 0" class="text-center py-6">
+              <div class="text-warm-400" :class="fontSizeConfig.base">
+                暂无紧急联系人
+              </div>
+              <div class="text-warm-300 text-sm mt-2">
+                请在联系人录入中标记紧急联系人
+              </div>
+            </div>
+            <div v-else class="grid grid-cols-2 gap-3">
               <div v-for="group in emergencyOnlyGroups" :key="group">
                 <div
                   class="rounded px-2 py-0.5 mb-1 font-bold text-white text-center"

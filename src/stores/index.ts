@@ -43,7 +43,7 @@ const DEFAULT_CONTACTS: Contact[] = [
 export const useContactStore = defineStore('contacts', () => {
   const storedContacts = loadFromStorage<Contact[] | null>(STORAGE_KEY_CONTACTS, null)
   const contacts = ref<Contact[]>(
-    storedContacts && storedContacts.length >= 3 ? storedContacts : DEFAULT_CONTACTS
+    storedContacts !== null ? storedContacts : DEFAULT_CONTACTS
   )
 
   const groupedContacts = computed(() => {

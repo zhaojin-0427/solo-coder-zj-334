@@ -3,7 +3,7 @@ import type { ContactGroup, Scenario } from '@/types'
 import { GROUP_LABELS, GROUP_COLORS, DEFAULT_SCENARIOS } from '@/types'
 import { useContactStore, useLayoutStore } from '@/stores'
 import { ref, computed } from 'vue'
-import { Heart, Wrench, Pill, Phone, ChevronRight, AlertCircle, Play } from 'lucide-vue-next'
+import { Heart, Wrench, Pill, Phone, ChevronRight, AlertCircle, Play, Star } from 'lucide-vue-next'
 
 const contactStore = useContactStore()
 const layoutStore = useLayoutStore()
@@ -174,10 +174,15 @@ function playSteps() {
               <div
                 v-for="contact in step.contacts"
                 :key="contact.id"
-                class="flex items-center gap-2 py-0.5"
-                :class="{ 'border-l-3 pl-2.5': contact.isEmergency }"
+                class="flex items-start gap-2 py-0.5"
+                :class="{ 'border-l-4 pl-2.5': contact.isEmergency }"
                 :style="contact.isEmergency ? { borderColor: '#E8652B' } : {}"
               >
+                <Star
+                  v-if="contact.isEmergency"
+                  class="w-4 h-4 shrink-0 mt-0.5"
+                  style="color: #E8652B; fill: #E8652B;"
+                />
                 <span class="text-sm font-bold text-warm-900">{{ contact.name }}</span>
                 <span class="text-sm font-mono text-warm-600 tracking-wide">{{ contact.phone }}</span>
               </div>
