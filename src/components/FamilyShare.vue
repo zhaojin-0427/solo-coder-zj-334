@@ -1,21 +1,22 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useContactStore, usePackageStore, useFollowUpStore, useDrillStore } from '@/stores'
+import { useContactStore, usePackageStore, useFollowUpStore, useDrillStore, useEmergencyStore } from '@/stores'
 import {
   Share2, Download, Upload, Copy, Check, Users, FileText,
-  AlertCircle, Smartphone, QrCode, Mail, MessageSquare, ChevronRight
+  AlertCircle, Smartphone, QrCode, Mail, MessageSquare, ChevronRight, MapPin, Clock, Plus, RefreshCw
 } from 'lucide-vue-next'
 
 const contactStore = useContactStore()
 const packageStore = usePackageStore()
 const followUpStore = useFollowUpStore()
 const drillStore = useDrillStore()
+const emergencyStore = useEmergencyStore()
 
 const copied = ref(false)
 const shareCode = ref('')
 const importData = ref('')
 const importError = ref('')
-const activeTab = ref<'export' | 'import'>('export')
+const activeTab = ref<'export' | 'import' | 'activity'>('export')
 const exportType = ref<'all' | 'contacts' | 'packages'>('all')
 
 function generateShareCode() {
@@ -120,8 +121,38 @@ const dataSummary = computed(() => {
     packages: packageStore.packages.length,
     followUps: followUpStore.items.length,
     drills: drillStore.history.length,
+    emergencyItems: emergencyStore.items.length,
   }
 })
+
+const recentActivities = computed(() => {
+  return emergencyStore.activities.slice(0, 20)
+})
+
+function formatActivityTime(ts: number) {
+  const now = Date.now()
+  const diff = now - ts
+  if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前'
+  if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前'
+  if (diff < 86400000 * 7) return Math.floor(diff / 86400000) + '天前'
+  return new Date(ts).toLocaleDateString('zh-CN')
+}
+
+const ACTIVITY_ICONS: Record<string, typeof Plus> = {
+  added: Plus,
+  'location-changed': MapPin,
+  feedback: MessageSquare,
+  expired: AlertCircle,
+  reviewed: RefreshCw,
+}
+
+const ACTIVITY_COLORS: Record<string, string> = {
+  added: '#5C9460',
+  'location-changed': '#5B9BD5',
+  feedback: '#E8A838',
+  expired: '#D94F4F',
+  reviewed: '#7BAE7F',
+}
 
 generateShareCode()
 </script>
@@ -146,7 +177,7 @@ generateShareCode()
       </div>
     </div>
 
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
       <div class="rounded-2xl bg-white/70 p-4 text-center">
         <Users class="h-6 w-6 mx-auto mb-2 text-[#E8652B]" />
         <p class="text-2xl font-bold text-warm-900">{{ dataSummary.contacts }}</p>
@@ -156,6 +187,11 @@ generateShareCode()
         <FileText class="h-6 w-6 mx-auto mb-2 text-[#7BAE7F]" />
         <p class="text-2xl font-bold text-warm-900">{{ dataSummary.packages }}</p>
         <p class="text-sm text-warm-500">个资料包</p>
+      </div>
+      <div class="rounded-2xl bg-white/70 p-4 text-center">
+        <MapPin class="h-6 w-6 mx-auto mb-2 text-[#D94F4F]" />
+        <p class="text-2xl font-bold text-warm-900">{{ dataSummary.emergencyItems }}</p>
+        <p class="text-sm text-warm-500">件应急物品</p>
       </div>
       <div class="rounded-2xl bg-white/70 p-4 text-center">
         <AlertCircle class="h-6 w-6 mx-auto mb-2 text-[#E8A838]" />
@@ -189,6 +225,16 @@ generateShareCode()
       >
         <Upload class="h-5 w-5 inline-block mr-2" />
         导入/接收
+      </button>
+      <button
+        @click="activeTab = 'activity'"
+        class="flex-1 rounded-xl px-4 py-3 text-base font-medium transition-colors"
+        :style="activeTab === 'activity'
+          ? { backgroundColor: '#7BAE7F', color: 'white' }
+          : { backgroundColor: '#FFF8F0', color: '#8B7355' }"
+      >
+        <Clock class="h-5 w-5 inline-block mr-2" />
+        家庭动态
       </button>
     </div>
 
@@ -344,6 +390,45 @@ generateShareCode()
               <li>• 请确保分享码来源可信</li>
               <li>• 建议在导入前先导出备份现有数据</li>
             </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="activeTab === 'activity'" class="space-y-5">
+      <div class="rounded-2xl bg-white shadow-sm p-5 space-y-4">
+        <h3 class="text-lg font-bold text-warm-800 flex items-center gap-2">
+          <Clock class="h-5 w-5 text-[#7BAE7F]" />
+          物品动态
+        </h3>
+        <p class="text-sm text-warm-500">查看应急物品的新增、位置变更和老人查找反馈等动态</p>
+
+        <div v-if="recentActivities.length === 0" class="rounded-xl bg-warm-50 p-8 text-center">
+          <Clock class="mx-auto mb-3 h-10 w-10 text-warm-300" />
+          <p class="text-warm-400">暂无动态</p>
+          <p class="text-sm text-warm-300 mt-1">物品变更和查找反馈会在这里显示</p>
+        </div>
+
+        <div v-else class="space-y-3">
+          <div
+            v-for="activity in recentActivities"
+            :key="activity.id"
+            class="flex items-start gap-3 p-3 rounded-xl bg-warm-50/50"
+          >
+            <div
+              class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+              :style="{ backgroundColor: (ACTIVITY_COLORS[activity.action] || '#8B7355') + '20' }"
+            >
+              <component
+                :is="ACTIVITY_ICONS[activity.action] || Plus"
+                class="h-4 w-4"
+                :style="{ color: ACTIVITY_COLORS[activity.action] || '#8B7355' }"
+              />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-warm-700">{{ activity.detail }}</p>
+              <p class="text-xs text-warm-400 mt-1">{{ formatActivityTime(activity.timestamp) }}</p>
+            </div>
           </div>
         </div>
       </div>

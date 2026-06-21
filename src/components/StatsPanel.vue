@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useStatsStore } from '@/stores'
-import { GROUP_LABELS, GROUP_COLORS } from '@/types'
+import { GROUP_LABELS, GROUP_COLORS, EMERGENCY_ITEM_TYPE_LABELS, EMERGENCY_ITEM_TYPE_COLORS, FIND_FEEDBACK_LABELS, FIND_FEEDBACK_COLORS } from '@/types'
+import type { EmergencyItemType, FindFeedback } from '@/types'
 import {
   BarChart3, Users, Star, Package, Play, CheckCircle2, Clock,
-  TrendingUp, Award, Heart, Phone, UserPlus
+  TrendingUp, Award, Heart, Phone, UserPlus, MapPin, AlertTriangle, Shield
 } from 'lucide-vue-next'
 
 const statsStore = useStatsStore()
@@ -30,6 +31,34 @@ const completionRate = computed(() => {
   if (statsStore.stats.totalFollowUps === 0) return 0
   return Math.round((statsStore.stats.completedFollowUps / statsStore.stats.totalFollowUps) * 100)
 })
+
+const emergencyItemTypeData = computed(() => {
+  const entries = Object.entries(statsStore.stats.emergencyItemTypeCounts) as [EmergencyItemType, number][]
+  return entries.map(([key, value]) => ({
+    key,
+    label: EMERGENCY_ITEM_TYPE_LABELS[key],
+    color: EMERGENCY_ITEM_TYPE_COLORS[key],
+    count: value,
+  })).filter(d => d.count > 0)
+})
+
+const maxTypeCount = computed(() => {
+  return Math.max(...emergencyItemTypeData.value.map(d => d.count), 1)
+})
+
+const feedbackData = computed(() => {
+  const entries = Object.entries(statsStore.stats.feedbackDistribution) as [FindFeedback, number][]
+  return entries.map(([key, value]) => ({
+    key,
+    label: FIND_FEEDBACK_LABELS[key],
+    color: FIND_FEEDBACK_COLORS[key],
+    count: value,
+  }))
+})
+
+const totalFeedback = computed(() => {
+  return feedbackData.value.reduce((sum, d) => sum + d.count, 0)
+})
 </script>
 
 <template>
@@ -50,7 +79,7 @@ const completionRate = computed(() => {
       </div>
     </div>
 
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
       <div class="rounded-2xl bg-white shadow-sm p-5">
         <div class="flex items-center gap-3 mb-3">
           <div class="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
@@ -84,11 +113,172 @@ const completionRate = computed(() => {
       <div class="rounded-2xl bg-white shadow-sm p-5">
         <div class="flex items-center gap-3 mb-3">
           <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-            <Play class="h-5 w-5 text-[#5B9BD5]" />
+            <MapPin class="h-5 w-5 text-[#5B9BD5]" />
+          </div>
+        </div>
+        <p class="text-3xl font-bold text-warm-900">{{ statsStore.stats.totalEmergencyItems }}</p>
+        <p class="text-sm text-warm-500 mt-1">应急物品</p>
+      </div>
+
+      <div class="rounded-2xl bg-white shadow-sm p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+            <Play class="h-5 w-5 text-[#9B6DB7]" />
           </div>
         </div>
         <p class="text-3xl font-bold text-warm-900">{{ statsStore.stats.totalDrills }}</p>
         <p class="text-sm text-warm-500 mt-1">演练次数</p>
+      </div>
+    </div>
+
+    <div class="rounded-2xl bg-white shadow-sm p-5 space-y-4">
+      <h3 class="text-lg font-bold text-warm-800 flex items-center gap-2">
+        <MapPin class="h-5 w-5 text-[#E8652B]" />
+        应急物品类型分布
+      </h3>
+
+      <div v-if="emergencyItemTypeData.length === 0" class="text-center py-6">
+        <MapPin class="mx-auto mb-2 h-8 w-8 text-warm-300" />
+        <p class="text-warm-400">暂无应急物品数据</p>
+      </div>
+
+      <div v-else class="space-y-3">
+        <div
+          v-for="typeItem in emergencyItemTypeData"
+          :key="typeItem.key"
+          class="space-y-1.5"
+        >
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div
+                class="w-3 h-3 rounded-full"
+                :style="{ backgroundColor: typeItem.color }"
+              />
+              <span class="text-sm font-medium text-warm-700">{{ typeItem.label }}</span>
+            </div>
+            <span class="text-sm font-bold text-warm-600">{{ typeItem.count }} 件</span>
+          </div>
+          <div class="w-full h-2 bg-warm-100 rounded-full overflow-hidden">
+            <div
+              class="h-full rounded-full transition-all duration-700"
+              :style="{
+                width: `${(typeItem.count / maxTypeCount) * 100}%`,
+                backgroundColor: typeItem.color,
+              }"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="rounded-2xl bg-white shadow-sm p-5 space-y-4">
+        <h3 class="text-lg font-bold text-warm-800 flex items-center gap-2">
+          <AlertTriangle class="h-5 w-5 text-[#D94F4F]" />
+          过期与复查提醒
+        </h3>
+
+        <div class="flex items-center justify-center py-4">
+          <div class="relative w-32 h-32">
+            <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
+              <circle
+                cx="50" cy="50" r="40"
+                stroke="#F0E0D0"
+                stroke-width="12"
+                fill="none"
+              />
+              <circle
+                cx="50" cy="50" r="40"
+                stroke="#D94F4F"
+                stroke-width="12"
+                fill="none"
+                stroke-linecap="round"
+                :stroke-dasharray="statsStore.stats.totalEmergencyItems > 0
+                  ? `${(statsStore.stats.expiringOrReviewCount / statsStore.stats.totalEmergencyItems) * 251.2} 251.2`
+                  : '0 251.2'"
+              />
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <p class="text-2xl font-bold text-warm-900">{{ statsStore.stats.expiringOrReviewCount }}</p>
+              <p class="text-xs text-warm-500">需关注</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 pt-3 border-t border-warm-100">
+          <div class="text-center">
+            <p class="text-xl font-bold text-warm-800">{{ statsStore.stats.totalEmergencyItems }}</p>
+            <p class="text-xs text-warm-500">物品总数</p>
+          </div>
+          <div class="text-center">
+            <p class="text-xl font-bold text-[#D94F4F]">{{ statsStore.stats.expiringOrReviewCount }}</p>
+            <p class="text-xs text-warm-500">即将过期/需复查</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl bg-white shadow-sm p-5 space-y-4">
+        <h3 class="text-lg font-bold text-warm-800 flex items-center gap-2">
+          <Shield class="h-5 w-5 text-[#E8A838]" />
+          高紧急物品覆盖率
+        </h3>
+
+        <div class="flex items-center justify-center py-4">
+          <div class="relative w-32 h-32">
+            <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
+              <circle
+                cx="50" cy="50" r="40"
+                stroke="#F0E0D0"
+                stroke-width="12"
+                fill="none"
+              />
+              <circle
+                cx="50" cy="50" r="40"
+                stroke="#E8A838"
+                stroke-width="12"
+                fill="none"
+                stroke-linecap="round"
+                :stroke-dasharray="`${statsStore.stats.highUrgencyCoverage * 2.512} 251.2`"
+              />
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <p class="text-2xl font-bold text-warm-900">{{ statsStore.stats.highUrgencyCoverage }}%</p>
+              <p class="text-xs text-warm-500">覆盖率</p>
+            </div>
+          </div>
+        </div>
+
+        <p class="text-sm text-warm-500 text-center">
+          高紧急物品中有 {{ statsStore.stats.highUrgencyCoverage }}% 已有查找反馈
+        </p>
+      </div>
+    </div>
+
+    <div class="rounded-2xl bg-white shadow-sm p-5 space-y-4">
+      <h3 class="text-lg font-bold text-warm-800 flex items-center gap-2">
+        <UserPlus class="h-5 w-5 text-[#E8652B]" />
+        老人查找反馈分布
+      </h3>
+
+      <div v-if="totalFeedback === 0" class="text-center py-6">
+        <CheckCircle2 class="mx-auto mb-2 h-8 w-8 text-warm-300" />
+        <p class="text-warm-400">暂无查找反馈数据</p>
+        <p class="text-sm text-warm-300 mt-1">老人使用"我要找东西"后反馈会在这里展示</p>
+      </div>
+
+      <div v-else class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div
+          v-for="fb in feedbackData"
+          :key="fb.key"
+          class="rounded-xl p-4 text-center"
+          :style="{ backgroundColor: fb.color + '10' }"
+        >
+          <p class="text-2xl font-bold" :style="{ color: fb.color }">{{ fb.count }}</p>
+          <p class="text-sm text-warm-600 mt-1">{{ fb.label }}</p>
+          <p v-if="totalFeedback > 0" class="text-xs text-warm-400 mt-0.5">
+            {{ Math.round((fb.count / totalFeedback) * 100) }}%
+          </p>
+        </div>
       </div>
     </div>
 
@@ -229,7 +419,7 @@ const completionRate = computed(() => {
         使用统计
       </h3>
 
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <div class="rounded-xl bg-warm-50 p-4 text-center">
           <Phone class="h-6 w-6 mx-auto mb-2 text-[#E8652B]" />
           <p class="text-xl font-bold text-warm-800">{{ statsStore.stats.totalContacts }}</p>
@@ -239,6 +429,11 @@ const completionRate = computed(() => {
           <Heart class="h-6 w-6 mx-auto mb-2 text-red-500" />
           <p class="text-xl font-bold text-warm-800">{{ statsStore.stats.emergencyContacts }}</p>
           <p class="text-xs text-warm-500">紧急联系人</p>
+        </div>
+        <div class="rounded-xl bg-warm-50 p-4 text-center">
+          <MapPin class="h-6 w-6 mx-auto mb-2 text-[#D94F4F]" />
+          <p class="text-xl font-bold text-warm-800">{{ statsStore.stats.totalEmergencyItems }}</p>
+          <p class="text-xs text-warm-500">应急物品</p>
         </div>
         <div class="rounded-xl bg-warm-50 p-4 text-center">
           <Award class="h-6 w-6 mx-auto mb-2 text-[#E8A838]" />
@@ -271,7 +466,16 @@ const completionRate = computed(() => {
             <li v-if="statsStore.stats.pendingFollowUps > 3">
               ⏰ 待办事项较多，建议及时处理
             </li>
-            <li v-if="statsStore.stats.totalContacts >= 5 && statsStore.stats.emergencyContacts >= 3 && statsStore.stats.totalPackages >= 2">
+            <li v-if="statsStore.stats.totalEmergencyItems < 5">
+              🏠 建议添加更多应急物品，确保关键物品位置有记录
+            </li>
+            <li v-if="statsStore.stats.expiringOrReviewCount > 0">
+              ⚠️ 有 {{ statsStore.stats.expiringOrReviewCount }} 件物品即将过期或需要复查，请及时处理
+            </li>
+            <li v-if="statsStore.stats.highUrgencyCoverage < 50 && statsStore.stats.totalEmergencyItems > 0">
+              🔍 高紧急物品覆盖率较低，建议确认这些物品的位置是否准确
+            </li>
+            <li v-if="statsStore.stats.totalContacts >= 5 && statsStore.stats.emergencyContacts >= 3 && statsStore.stats.totalPackages >= 2 && statsStore.stats.totalEmergencyItems >= 5">
               👍 您的数据已经很完整了，继续保持！
             </li>
           </ul>

@@ -11,22 +11,29 @@ import PackageViewer from '@/components/PackageViewer.vue'
 import FollowUpPanel from '@/components/FollowUpPanel.vue'
 import FamilyShare from '@/components/FamilyShare.vue'
 import StatsPanel from '@/components/StatsPanel.vue'
+import EmergencyItemList from '@/components/EmergencyItemList.vue'
+import EmergencyItemDetail from '@/components/EmergencyItemDetail.vue'
+import EmergencyItemEditor from '@/components/EmergencyItemEditor.vue'
+import ElderlyFindMode from '@/components/ElderlyFindMode.vue'
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   BookOpen, Layers, LayoutGrid, Printer, Zap, PhoneCall,
-  BookMarked, ClipboardList, Users, BarChart3
+  BookMarked, ClipboardList, Users, BarChart3, MapPin, Search
 } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
 
-type TabKey = 'input' | 'group' | 'layout' | 'print' | 'scenario' | 'drill' | 'packages' | 'followups' | 'share' | 'stats'
+type TabKey = 'input' | 'group' | 'layout' | 'print' | 'scenario' | 'drill' | 'packages' | 'emergency' | 'followups' | 'share' | 'stats'
 
 const activeTab = ref<TabKey>((route.query.tab as TabKey) || 'input')
 
 const packageView = ref<'list' | 'edit' | 'view'>('list')
 const currentPackageId = ref('')
+
+const emergencyView = ref<'list' | 'detail' | 'edit' | 'elderly'>('list')
+const currentEmergencyItemId = ref('')
 
 const tabs = [
   { key: 'input' as const, label: '联系人录入', icon: BookOpen },
@@ -36,6 +43,7 @@ const tabs = [
   { key: 'scenario' as const, label: '场景预演', icon: Zap },
   { key: 'drill' as const, label: '应急演练', icon: PhoneCall },
   { key: 'packages' as const, label: '回听资料包', icon: BookMarked },
+  { key: 'emergency' as const, label: '物品索引', icon: MapPin },
   { key: 'followups' as const, label: '待跟进事项', icon: ClipboardList },
   { key: 'share' as const, label: '家庭共享', icon: Users },
   { key: 'stats' as const, label: '数据统计', icon: BarChart3 },
@@ -45,6 +53,9 @@ watch(activeTab, (val) => {
   router.replace({ query: { ...route.query, tab: val } })
   if (val === 'packages') {
     packageView.value = 'list'
+  }
+  if (val === 'emergency') {
+    emergencyView.value = 'list'
   }
 })
 
@@ -66,6 +77,25 @@ function handleViewPackage(id: string) {
 
 function handleBackPackageList() {
   packageView.value = 'list'
+}
+
+function handleViewEmergencyItem(id: string) {
+  currentEmergencyItemId.value = id
+  emergencyView.value = 'detail'
+}
+
+function handleEditEmergencyItem(id: string) {
+  currentEmergencyItemId.value = id
+  emergencyView.value = 'edit'
+}
+
+function handleBackEmergencyList() {
+  emergencyView.value = 'list'
+}
+
+function handleSavedEmergencyItem(id: string) {
+  currentEmergencyItemId.value = id
+  emergencyView.value = 'detail'
 }
 </script>
 
@@ -157,6 +187,60 @@ function handleBackPackageList() {
             :package-id="currentPackageId"
             @back="handleBackPackageList"
             @edit="handleEditPackage"
+          />
+        </div>
+
+        <div class="lg:col-span-12" v-show="activeTab === 'emergency'">
+          <div class="flex items-center gap-2 mb-4" v-if="emergencyView !== 'list'">
+            <button
+              @click="handleBackEmergencyList"
+              class="flex items-center gap-1 text-sm text-warm-500 hover:text-[#E8652B] transition-colors"
+            >
+              ← 返回列表
+            </button>
+            <span class="text-warm-300">|</span>
+            <button
+              @click="emergencyView = 'elderly'"
+              class="flex items-center gap-1 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+              :style="emergencyView === 'elderly'
+                ? { backgroundColor: '#E8652B', color: 'white' }
+                : { color: '#E8652B', backgroundColor: '#FFF8F0' }"
+            >
+              <Search class="h-4 w-4" />
+              我要找东西
+            </button>
+          </div>
+          <div v-if="emergencyView === 'list'" class="space-y-4">
+            <div class="flex items-center gap-2">
+              <button
+                @click="emergencyView = 'elderly'"
+                class="flex items-center gap-2 rounded-xl px-4 py-2.5 text-base font-semibold text-white shadow-md transition-colors hover:bg-[#d45a24]"
+                style="background: #E8652B;"
+              >
+                <Search class="h-5 w-5" />
+                我要找东西
+              </button>
+              <span class="text-sm text-warm-400">老人大字版快速查找模式</span>
+            </div>
+            <EmergencyItemList
+              @view="handleViewEmergencyItem"
+              @edit="handleEditEmergencyItem"
+            />
+          </div>
+          <EmergencyItemDetail
+            v-else-if="emergencyView === 'detail'"
+            :item-id="currentEmergencyItemId"
+            @back="handleBackEmergencyList"
+            @edit="handleEditEmergencyItem"
+          />
+          <EmergencyItemEditor
+            v-else-if="emergencyView === 'edit'"
+            :item-id="currentEmergencyItemId"
+            @back="handleBackEmergencyList"
+            @saved="handleSavedEmergencyItem"
+          />
+          <ElderlyFindMode
+            v-else-if="emergencyView === 'elderly'"
           />
         </div>
 

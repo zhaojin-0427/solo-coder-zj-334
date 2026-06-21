@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
-import type { Contact, ContactGroup, LayoutConfig, CardFormat, FontSize, DrillSession, DrillHistoryRecord, DrillContactAttempt, ContactResult, ListeningPackage, PackageContact, FollowUpItem, FollowUpPriority, FollowUpStatus, StatsData } from '@/types'
-import { generateId, GROUP_LABELS, GROUP_COLORS, CONTACT_RESULT_LABELS, DRILL_MODES, PACKAGE_DEFAULT_GUIDE_TEXTS, FOLLOW_UP_PRIORITY_LABELS, FOLLOW_UP_STATUS_LABELS } from '@/types'
+import type { Contact, ContactGroup, LayoutConfig, CardFormat, FontSize, DrillSession, DrillHistoryRecord, DrillContactAttempt, ContactResult, ListeningPackage, PackageContact, FollowUpItem, FollowUpPriority, FollowUpStatus, StatsData, EmergencyItem, EmergencyItemType, EmergencyUrgency, FindFeedback, EmergencyItemActivity } from '@/types'
+import { generateId, GROUP_LABELS, GROUP_COLORS, CONTACT_RESULT_LABELS, DRILL_MODES, PACKAGE_DEFAULT_GUIDE_TEXTS, FOLLOW_UP_PRIORITY_LABELS, FOLLOW_UP_STATUS_LABELS, EMERGENCY_ITEM_TYPE_LABELS, EMERGENCY_ITEM_TYPE_COLORS, FIND_FEEDBACK_LABELS } from '@/types'
 
 const STORAGE_KEY_CONTACTS = 'phonebook-contacts'
 const STORAGE_KEY_LAYOUT = 'phonebook-layout'
@@ -603,6 +603,8 @@ const DEFAULT_FOLLOW_UPS: FollowUpItem[] = [
     status: 'pending',
     createdAt: Date.now() - 86400000,
     completedAt: null,
+    sourceItemId: null,
+    sourceItemName: '',
   },
   {
     id: 'f2',
@@ -615,6 +617,8 @@ const DEFAULT_FOLLOW_UPS: FollowUpItem[] = [
     status: 'pending',
     createdAt: Date.now() - 86400000 * 2,
     completedAt: null,
+    sourceItemId: null,
+    sourceItemName: '',
   },
   {
     id: 'f3',
@@ -627,6 +631,8 @@ const DEFAULT_FOLLOW_UPS: FollowUpItem[] = [
     status: 'pending',
     createdAt: Date.now() - 3600000,
     completedAt: null,
+    sourceItemId: null,
+    sourceItemName: '',
   },
   {
     id: 'f4',
@@ -639,6 +645,8 @@ const DEFAULT_FOLLOW_UPS: FollowUpItem[] = [
     status: 'pending',
     createdAt: Date.now() - 86400000 * 3,
     completedAt: null,
+    sourceItemId: null,
+    sourceItemName: '',
   },
   {
     id: 'f5',
@@ -651,6 +659,8 @@ const DEFAULT_FOLLOW_UPS: FollowUpItem[] = [
     status: 'done',
     createdAt: Date.now() - 86400000 * 10,
     completedAt: Date.now() - 86400000 * 2,
+    sourceItemId: null,
+    sourceItemName: '',
   },
 ]
 
@@ -688,6 +698,8 @@ export const useFollowUpStore = defineStore('followUps', () => {
       status: 'pending',
       createdAt: now,
       completedAt: null,
+      sourceItemId: data.sourceItemId ?? null,
+      sourceItemName: data.sourceItemName || '',
     }
     items.value.unshift(newItem)
     return newItem
@@ -735,11 +747,294 @@ export const useFollowUpStore = defineStore('followUps', () => {
   }
 })
 
+const STORAGE_KEY_EMERGENCY_ITEMS = 'phonebook-emergency-items'
+const STORAGE_KEY_EMERGENCY_ACTIVITIES = 'phonebook-emergency-activities'
+
+const DEFAULT_EMERGENCY_ITEMS: EmergencyItem[] = [
+  {
+    id: 'ei1', name: '医保卡', type: 'medical', location: '卧室床头柜第二层抽屉',
+    findHint: '在老花镜旁边的小盒子里', photoDescription: '蓝色卡片，正面有社保标志',
+    expiryDate: null, checkDate: Date.now() + 86400000 * 90,
+    contactId: 'c9', contactName: '社区卫生中心', packageId: 'p1', packageName: '紧急联系速查',
+    urgency: 'high', needsPeriodicReview: true, reviewIntervalDays: 90, lastReviewedAt: null,
+    findFeedback: null, feedbackNote: '', feedbackAt: null,
+    createdAt: Date.now() - 86400000 * 30, updatedAt: Date.now() - 86400000 * 5,
+  },
+  {
+    id: 'ei2', name: '身份证', type: 'id', location: '客厅电视柜左侧抽屉',
+    findHint: '红色皮套里，和户口本放在一起', photoDescription: '二代身份证，正面有本人照片',
+    expiryDate: Date.now() + 86400000 * 365, checkDate: null,
+    contactId: null, contactName: '', packageId: null, packageName: '',
+    urgency: 'high', needsPeriodicReview: false, reviewIntervalDays: null, lastReviewedAt: null,
+    findFeedback: null, feedbackNote: '', feedbackAt: null,
+    createdAt: Date.now() - 86400000 * 60, updatedAt: Date.now() - 86400000 * 10,
+  },
+  {
+    id: 'ei3', name: '病历本', type: 'medical', location: '书房书架第二层',
+    findHint: '蓝色文件夹，标签写着"病历"', photoDescription: '蓝色文件夹，内含就诊记录',
+    expiryDate: null, checkDate: Date.now() + 86400000 * 30,
+    contactId: 'c10', contactName: '张医生（家庭医生）', packageId: 'p1', packageName: '紧急联系速查',
+    urgency: 'high', needsPeriodicReview: true, reviewIntervalDays: 180, lastReviewedAt: null,
+    findFeedback: null, feedbackNote: '', feedbackAt: null,
+    createdAt: Date.now() - 86400000 * 90, updatedAt: Date.now() - 86400000 * 3,
+  },
+  {
+    id: 'ei4', name: '常用药（降压药）', type: 'medical', location: '厨房餐边柜上层',
+    findHint: '白色药瓶，标签上有红色标记', photoDescription: '白色药瓶，红色标签',
+    expiryDate: Date.now() + 86400000 * 60, checkDate: null,
+    contactId: 'c14', contactName: '同仁堂大药房', packageId: null, packageName: '',
+    urgency: 'high', needsPeriodicReview: true, reviewIntervalDays: 30, lastReviewedAt: Date.now() - 86400000 * 5,
+    findFeedback: null, feedbackNote: '', feedbackAt: null,
+    createdAt: Date.now() - 86400000 * 120, updatedAt: Date.now() - 86400000 * 5,
+  },
+  {
+    id: 'ei5', name: '手电筒', type: 'home-safety', location: '客厅电视柜右侧抽屉',
+    findHint: '和电池放在一起，长筒形', photoDescription: '黑色长筒手电，带备用电池',
+    expiryDate: null, checkDate: Date.now() + 86400000 * 180,
+    contactId: null, contactName: '', packageId: null, packageName: '',
+    urgency: 'medium', needsPeriodicReview: true, reviewIntervalDays: 180, lastReviewedAt: null,
+    findFeedback: null, feedbackNote: '', feedbackAt: null,
+    createdAt: Date.now() - 86400000 * 200, updatedAt: Date.now() - 86400000 * 30,
+  },
+  {
+    id: 'ei6', name: '电闸位置', type: 'home-safety', location: '玄关进门左手边配电箱',
+    findHint: '进门左手边墙上灰色铁箱，需向上推盖子打开', photoDescription: '灰色铁箱，内有多个开关',
+    expiryDate: null, checkDate: null,
+    contactId: 'c11', contactName: '王师傅（水电维修）', packageId: null, packageName: '',
+    urgency: 'high', needsPeriodicReview: false, reviewIntervalDays: null, lastReviewedAt: null,
+    findFeedback: null, feedbackNote: '', feedbackAt: null,
+    createdAt: Date.now() - 86400000 * 300, updatedAt: Date.now() - 86400000 * 30,
+  },
+  {
+    id: 'ei7', name: '燃气阀门', type: 'home-safety', location: '厨房灶台下方管道上',
+    findHint: '灶台下方，红色把手横向是关，纵向是开', photoDescription: '红色把手阀门，横向关纵向开',
+    expiryDate: null, checkDate: null,
+    contactId: 'c11', contactName: '王师傅（水电维修）', packageId: null, packageName: '',
+    urgency: 'high', needsPeriodicReview: false, reviewIntervalDays: null, lastReviewedAt: null,
+    findFeedback: null, feedbackNote: '', feedbackAt: null,
+    createdAt: Date.now() - 86400000 * 300, updatedAt: Date.now() - 86400000 * 30,
+  },
+  {
+    id: 'ei8', name: '家门钥匙（备用）', type: 'travel', location: '对门张阿姨家保管',
+    findHint: '张阿姨（对门）保管了一把备用钥匙', photoDescription: '银色钥匙，带红色钥匙扣',
+    expiryDate: null, checkDate: null,
+    contactId: 'c4', contactName: '张阿姨（对门）', packageId: null, packageName: '',
+    urgency: 'medium', needsPeriodicReview: false, reviewIntervalDays: null, lastReviewedAt: null,
+    findFeedback: null, feedbackNote: '', feedbackAt: null,
+    createdAt: Date.now() - 86400000 * 365, updatedAt: Date.now() - 86400000 * 60,
+  },
+  {
+    id: 'ei9', name: '工具箱', type: 'repair', location: '阳台储物柜底层',
+    findHint: '红色工具箱，里面有螺丝刀、扳手、胶带等', photoDescription: '红色塑料工具箱，内有常用工具',
+    expiryDate: null, checkDate: Date.now() + 86400000 * 365,
+    contactId: 'c12', contactName: '小李（家电维修）', packageId: null, packageName: '',
+    urgency: 'low', needsPeriodicReview: true, reviewIntervalDays: 365, lastReviewedAt: null,
+    findFeedback: null, feedbackNote: '', feedbackAt: null,
+    createdAt: Date.now() - 86400000 * 200, updatedAt: Date.now() - 86400000 * 40,
+  },
+  {
+    id: 'ei10', name: '老年优待证', type: 'travel', location: '出门随身包内层口袋',
+    findHint: '绿色小本，放在随身包里侧拉链袋', photoDescription: '绿色小本，印有"老年优待证"',
+    expiryDate: null, checkDate: Date.now() + 86400000 * 180,
+    contactId: null, contactName: '', packageId: null, packageName: '',
+    urgency: 'low', needsPeriodicReview: true, reviewIntervalDays: 365, lastReviewedAt: null,
+    findFeedback: null, feedbackNote: '', feedbackAt: null,
+    createdAt: Date.now() - 86400000 * 180, updatedAt: Date.now() - 86400000 * 20,
+  },
+]
+
+const DEFAULT_EMERGENCY_ACTIVITIES: EmergencyItemActivity[] = [
+  { id: 'ea1', itemId: 'ei1', itemName: '医保卡', action: 'added', detail: '新增物品"医保卡"', timestamp: Date.now() - 86400000 * 30 },
+  { id: 'ea2', itemId: 'ei6', itemName: '电闸位置', action: 'added', detail: '新增物品"电闸位置"', timestamp: Date.now() - 86400000 * 30 },
+]
+
+export const useEmergencyStore = defineStore('emergency', () => {
+  const items = ref<EmergencyItem[]>(
+    loadFromStorage<EmergencyItem[]>(STORAGE_KEY_EMERGENCY_ITEMS, DEFAULT_EMERGENCY_ITEMS)
+  )
+  const activities = ref<EmergencyItemActivity[]>(
+    loadFromStorage<EmergencyItemActivity[]>(STORAGE_KEY_EMERGENCY_ACTIVITIES, DEFAULT_EMERGENCY_ACTIVITIES)
+  )
+
+  const groupedItems = computed(() => {
+    const groups: Record<EmergencyItemType, EmergencyItem[]> = {
+      medical: [], id: [], 'home-safety': [], travel: [], repair: [], other: [],
+    }
+    for (const item of items.value) {
+      groups[item.type].push(item)
+    }
+    return groups
+  })
+
+  const highUrgencyItems = computed(() =>
+    items.value.filter(i => i.urgency === 'high')
+  )
+
+  const expiringItems = computed(() => {
+    const now = Date.now()
+    const threshold = 30 * 86400000
+    return items.value.filter(i => {
+      if (i.expiryDate && i.expiryDate - now < threshold) return true
+      if (i.checkDate && i.checkDate - now < threshold) return true
+      if (i.needsPeriodicReview && i.reviewIntervalDays && i.lastReviewedAt) {
+        const nextReview = i.lastReviewedAt + (i.reviewIntervalDays * 86400000)
+        if (nextReview - now < threshold) return true
+      }
+      return false
+    })
+  })
+
+  function getItemById(id: string): EmergencyItem | undefined {
+    return items.value.find(i => i.id === id)
+  }
+
+  function addItem(data: Partial<EmergencyItem>) {
+    const now = Date.now()
+    const newItem: EmergencyItem = {
+      id: generateId(),
+      name: data.name || '新物品',
+      type: data.type || 'other',
+      location: data.location || '',
+      findHint: data.findHint || '',
+      photoDescription: data.photoDescription || '',
+      expiryDate: data.expiryDate ?? null,
+      checkDate: data.checkDate ?? null,
+      contactId: data.contactId ?? null,
+      contactName: data.contactName || '',
+      packageId: data.packageId ?? null,
+      packageName: data.packageName || '',
+      urgency: data.urgency || 'medium',
+      needsPeriodicReview: data.needsPeriodicReview ?? false,
+      reviewIntervalDays: data.reviewIntervalDays ?? null,
+      lastReviewedAt: data.lastReviewedAt ?? null,
+      findFeedback: null,
+      feedbackNote: '',
+      feedbackAt: null,
+      createdAt: now,
+      updatedAt: now,
+    }
+    items.value.push(newItem)
+    addActivity(newItem.id, newItem.name, 'added', `新增物品"${newItem.name}"`)
+    return newItem
+  }
+
+  function updateItem(id: string, data: Partial<EmergencyItem>) {
+    const idx = items.value.findIndex(i => i.id === id)
+    if (idx !== -1) {
+      const old = items.value[idx]
+      if (data.location !== undefined && data.location !== old.location) {
+        addActivity(id, old.name, 'location-changed', `"${old.name}"位置从"${old.location}"变更为"${data.location}"`)
+      }
+      items.value[idx] = { ...items.value[idx], ...data, updatedAt: Date.now() }
+    }
+  }
+
+  function deleteItem(id: string) {
+    items.value = items.value.filter(i => i.id !== id)
+    activities.value = activities.value.filter(a => a.itemId !== id)
+  }
+
+  function setFindFeedback(id: string, feedback: FindFeedback, note: string) {
+    const item = items.value.find(i => i.id === id)
+    if (!item) return
+    const oldFeedback = item.findFeedback
+    item.findFeedback = feedback
+    item.feedbackNote = note
+    item.feedbackAt = Date.now()
+    item.updatedAt = Date.now()
+    addActivity(id, item.name, 'feedback', `"${item.name}"查找反馈：${FIND_FEEDBACK_LABELS[feedback]}${note ? ' - ' + note : ''}`)
+    if ((feedback === 'unclear-location' || feedback === 'need-family-confirm') && oldFeedback !== feedback) {
+      const followUpStore = useFollowUpStore()
+      followUpStore.addItem({
+        title: feedback === 'unclear-location'
+          ? `确认"${item.name}"的存放位置`
+          : `家人确认"${item.name}"的情况`,
+        description: `老人查找"${item.name}"后反馈：${FIND_FEEDBACK_LABELS[feedback]}。${note ? '备注：' + note : ''}。物品当前位置记录：${item.location || '未记录'}。`,
+        contactId: item.contactId,
+        contactName: item.contactName,
+        priority: item.urgency === 'high' ? 'high' : 'medium',
+        sourceItemId: item.id,
+        sourceItemName: item.name,
+      })
+    }
+  }
+
+  function markReviewed(id: string) {
+    const item = items.value.find(i => i.id === id)
+    if (item) {
+      item.lastReviewedAt = Date.now()
+      item.updatedAt = Date.now()
+      addActivity(id, item.name, 'reviewed', `"${item.name}"已完成复查`)
+    }
+  }
+
+  function addActivity(itemId: string, itemName: string, action: EmergencyItemActivity['action'], detail: string) {
+    activities.value.unshift({
+      id: generateId(),
+      itemId,
+      itemName,
+      action,
+      detail,
+      timestamp: Date.now(),
+    })
+    if (activities.value.length > 100) {
+      activities.value = activities.value.slice(0, 100)
+    }
+  }
+
+  function syncWithContacts(contacts: Contact[]) {
+    for (const item of items.value) {
+      if (item.contactId) {
+        const live = contacts.find(c => c.id === item.contactId)
+        if (!live) {
+          item.contactName = item.contactName ? item.contactName + '（已删除）' : '联系人已删除'
+        } else {
+          item.contactName = live.name
+        }
+      }
+    }
+  }
+
+  function syncWithPackages(packages: ListeningPackage[]) {
+    for (const item of items.value) {
+      if (item.packageId) {
+        const live = packages.find(p => p.id === item.packageId)
+        if (!live) {
+          item.packageName = item.packageName ? item.packageName + '（已删除）' : '资料包已删除'
+        } else {
+          item.packageName = live.title
+        }
+      }
+    }
+  }
+
+  watch(items, (val) => saveToStorage(STORAGE_KEY_EMERGENCY_ITEMS, val), { deep: true })
+  watch(activities, (val) => saveToStorage(STORAGE_KEY_EMERGENCY_ACTIVITIES, val), { deep: true })
+
+  return {
+    items,
+    activities,
+    groupedItems,
+    highUrgencyItems,
+    expiringItems,
+    getItemById,
+    addItem,
+    updateItem,
+    deleteItem,
+    setFindFeedback,
+    markReviewed,
+    addActivity,
+    syncWithContacts,
+    syncWithPackages,
+  }
+})
+
 export const useStatsStore = defineStore('stats', () => {
   const contactStore = useContactStore()
   const packageStore = usePackageStore()
   const drillStore = useDrillStore()
   const followUpStore = useFollowUpStore()
+  const emergencyStore = useEmergencyStore()
 
   const stats = computed<StatsData>(() => {
     const groupCounts: Record<ContactGroup, number> = {
@@ -748,6 +1043,26 @@ export const useStatsStore = defineStore('stats', () => {
     for (const c of contactStore.contacts) {
       groupCounts[c.group]++
     }
+
+    const emergencyItemTypeCounts: Record<EmergencyItemType, number> = {
+      medical: 0, id: 0, 'home-safety': 0, travel: 0, repair: 0, other: 0,
+    }
+    for (const item of emergencyStore.items) {
+      emergencyItemTypeCounts[item.type]++
+    }
+
+    const feedbackDistribution: Record<FindFeedback, number> = {
+      found: 0, 'not-found': 0, 'unclear-location': 0, 'need-family-confirm': 0,
+    }
+    for (const item of emergencyStore.items) {
+      if (item.findFeedback) {
+        feedbackDistribution[item.findFeedback]++
+      }
+    }
+
+    const highUrgencyTotal = emergencyStore.highUrgencyItems.length
+    const highUrgencyWithFeedback = emergencyStore.highUrgencyItems.filter(i => i.findFeedback).length
+    const highUrgencyCoverage = highUrgencyTotal > 0 ? Math.round((highUrgencyWithFeedback / highUrgencyTotal) * 100) : 0
 
     return {
       totalContacts: contactStore.contacts.length,
@@ -759,6 +1074,11 @@ export const useStatsStore = defineStore('stats', () => {
       totalFollowUps: followUpStore.items.length,
       completedFollowUps: followUpStore.doneItems.length,
       pendingFollowUps: followUpStore.pendingItems.length,
+      totalEmergencyItems: emergencyStore.items.length,
+      emergencyItemTypeCounts,
+      expiringOrReviewCount: emergencyStore.expiringItems.length,
+      feedbackDistribution,
+      highUrgencyCoverage,
     }
   })
 

@@ -183,6 +183,140 @@ export interface ListeningPackage {
 export type FollowUpPriority = 'high' | 'medium' | 'low'
 export type FollowUpStatus = 'pending' | 'done'
 
+export type EmergencyItemType = 'medical' | 'id' | 'home-safety' | 'travel' | 'repair' | 'other'
+export type EmergencyUrgency = 'high' | 'medium' | 'low'
+export type FindFeedback = 'found' | 'not-found' | 'unclear-location' | 'need-family-confirm'
+
+export const EMERGENCY_ITEM_TYPE_LABELS: Record<EmergencyItemType, string> = {
+  medical: '医疗',
+  id: '证件',
+  'home-safety': '家居安全',
+  travel: '出行',
+  repair: '维修',
+  other: '其他',
+}
+
+export const EMERGENCY_ITEM_TYPE_COLORS: Record<EmergencyItemType, string> = {
+  medical: '#D94F4F',
+  id: '#5B9BD5',
+  'home-safety': '#E8A838',
+  travel: '#7BAE7F',
+  repair: '#E8652B',
+  other: '#9B6DB7',
+}
+
+export const EMERGENCY_ITEM_TYPE_ICONS: Record<EmergencyItemType, string> = {
+  medical: 'heart-pulse',
+  id: 'credit-card',
+  'home-safety': 'shield',
+  travel: 'car',
+  repair: 'wrench',
+  other: 'box',
+}
+
+export const EMERGENCY_URGENCY_LABELS: Record<EmergencyUrgency, string> = {
+  high: '紧急',
+  medium: '一般',
+  low: '不急',
+}
+
+export const EMERGENCY_URGENCY_COLORS: Record<EmergencyUrgency, string> = {
+  high: '#D94F4F',
+  medium: '#E8A838',
+  low: '#7BAE7F',
+}
+
+export const FIND_FEEDBACK_LABELS: Record<FindFeedback, string> = {
+  found: '已找到',
+  'not-found': '没找到',
+  'unclear-location': '位置不清楚',
+  'need-family-confirm': '需要家人确认',
+}
+
+export const FIND_FEEDBACK_COLORS: Record<FindFeedback, string> = {
+  found: '#5C9460',
+  'not-found': '#D94F4F',
+  'unclear-location': '#E8A838',
+  'need-family-confirm': '#5B9BD5',
+}
+
+export interface EmergencyItem {
+  id: string
+  name: string
+  type: EmergencyItemType
+  location: string
+  findHint: string
+  photoDescription: string
+  expiryDate: number | null
+  checkDate: number | null
+  contactId: string | null
+  contactName: string
+  packageId: string | null
+  packageName: string
+  urgency: EmergencyUrgency
+  needsPeriodicReview: boolean
+  reviewIntervalDays: number | null
+  lastReviewedAt: number | null
+  findFeedback: FindFeedback | null
+  feedbackNote: string
+  feedbackAt: number | null
+  createdAt: number
+  updatedAt: number
+}
+
+export interface ElderlyScenario {
+  id: string
+  name: string
+  description: string
+  icon: string
+  itemTypes: EmergencyItemType[]
+  itemKeywords: string[]
+}
+
+export const ELDERLY_SCENARIOS: ElderlyScenario[] = [
+  {
+    id: 'sudden-illness',
+    name: '突发就医',
+    description: '突发疾病需要就医时，优先准备这些物品',
+    icon: 'heart-pulse',
+    itemTypes: ['medical', 'id'],
+    itemKeywords: ['医保', '身份证', '病历', '常用药', '急救'],
+  },
+  {
+    id: 'power-outage',
+    name: '家中停电',
+    description: '停电时需要找到的物品和位置',
+    icon: 'zap-off',
+    itemTypes: ['home-safety', 'repair'],
+    itemKeywords: ['手电', '电闸', '维修', '燃气', '阀门'],
+  },
+  {
+    id: 'going-out',
+    name: '出门办事',
+    description: '出门时需要携带的证件和物品',
+    icon: 'door-open',
+    itemTypes: ['id', 'travel'],
+    itemKeywords: ['钥匙', '身份证', '公交', '老年证', '钱包'],
+  },
+  {
+    id: 'home-repair',
+    name: '家中维修',
+    description: '家中设备故障时需要的工具和联系人',
+    icon: 'wrench',
+    itemTypes: ['repair', 'home-safety'],
+    itemKeywords: ['工具', '电闸', '水阀', '燃气', '维修'],
+  },
+]
+
+export interface EmergencyItemActivity {
+  id: string
+  itemId: string
+  itemName: string
+  action: 'added' | 'location-changed' | 'feedback' | 'expired' | 'reviewed'
+  detail: string
+  timestamp: number
+}
+
 export interface FollowUpItem {
   id: string
   title: string
@@ -194,6 +328,25 @@ export interface FollowUpItem {
   status: FollowUpStatus
   createdAt: number
   completedAt: number | null
+  sourceItemId: string | null
+  sourceItemName: string
+}
+
+export interface StatsData {
+  totalContacts: number
+  emergencyContacts: number
+  groupCounts: Record<ContactGroup, number>
+  totalPackages: number
+  highlightedPackages: number
+  totalDrills: number
+  totalFollowUps: number
+  completedFollowUps: number
+  pendingFollowUps: number
+  totalEmergencyItems: number
+  emergencyItemTypeCounts: Record<EmergencyItemType, number>
+  expiringOrReviewCount: number
+  feedbackDistribution: Record<FindFeedback, number>
+  highUrgencyCoverage: number
 }
 
 export const FOLLOW_UP_PRIORITY_LABELS: Record<FollowUpPriority, string> = {
@@ -223,6 +376,11 @@ export interface StatsData {
   totalFollowUps: number
   completedFollowUps: number
   pendingFollowUps: number
+  totalEmergencyItems: number
+  emergencyItemTypeCounts: Record<EmergencyItemType, number>
+  expiringOrReviewCount: number
+  feedbackDistribution: Record<FindFeedback, number>
+  highUrgencyCoverage: number
 }
 
 export const PACKAGE_DEFAULT_GUIDE_TEXTS = [

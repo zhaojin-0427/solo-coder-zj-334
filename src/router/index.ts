@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomePage from '@/pages/HomePage.vue'
 
-const routes = [
+const routes: import('vue-router').RouteRecordRaw[] = [
   {
     path: '/',
     name: 'home',
@@ -18,6 +18,14 @@ const routes = [
   {
     path: '/review-packages',
     redirect: '/?tab=packages',
+  },
+  {
+    path: '/emergency-items',
+    redirect: '/?tab=emergency',
+  },
+  {
+    path: '/emergency',
+    redirect: '/?tab=emergency',
   },
   {
     path: '/family-share',

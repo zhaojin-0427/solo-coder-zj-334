@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useFollowUpStore, useContactStore } from '@/stores'
+import { useFollowUpStore, useContactStore, useEmergencyStore } from '@/stores'
 import {
   CheckCircle2, Circle, Plus, Trash2, Clock, AlertCircle,
-  Calendar, User, ChevronDown, X, Edit2
+  Calendar, User, ChevronDown, X, Edit2, MapPin
 } from 'lucide-vue-next'
 import type { FollowUpPriority } from '@/types'
 import { FOLLOW_UP_PRIORITY_LABELS, FOLLOW_UP_PRIORITY_COLORS, FOLLOW_UP_STATUS_LABELS } from '@/types'
 
 const followUpStore = useFollowUpStore()
 const contactStore = useContactStore()
+const emergencyStore = useEmergencyStore()
 
 const showAddForm = ref(false)
 const editingId = ref<string | null>(null)
@@ -167,6 +168,10 @@ const priorityOptions = [
             </p>
 
             <div class="flex items-center gap-4 mt-2 text-xs text-warm-400 flex-wrap">
+              <div v-if="item.sourceItemName" class="flex items-center gap-1 text-[#5B9BD5]">
+                <MapPin class="h-3.5 w-3.5" />
+                <span>来源：{{ item.sourceItemName }}</span>
+              </div>
               <div v-if="item.contactName" class="flex items-center gap-1">
                 <User class="h-3.5 w-3.5" />
                 <span>{{ item.contactName }}</span>
@@ -220,7 +225,13 @@ const priorityOptions = [
             <p v-if="item.description" class="text-sm text-warm-400 mt-1 line-clamp-1">
               {{ item.description }}
             </p>
-            <p class="text-xs text-warm-400 mt-2">
+            <div class="flex items-center gap-3 mt-1 text-xs text-warm-400">
+              <div v-if="item.sourceItemName" class="flex items-center gap-1 text-[#5B9BD5]">
+                <MapPin class="h-3 w-3" />
+                <span>来源：{{ item.sourceItemName }}</span>
+              </div>
+            </div>
+            <p class="text-xs text-warm-400 mt-1">
               完成于 {{ formatDate(item.completedAt) }}
             </p>
           </div>
