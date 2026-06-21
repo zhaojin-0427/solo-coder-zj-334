@@ -5,10 +5,28 @@ import CardLayout from '@/components/CardLayout.vue'
 import PrintPreview from '@/components/PrintPreview.vue'
 import ScenarioPreview from '@/components/ScenarioPreview.vue'
 import DrillDrill from '@/components/DrillDrill.vue'
-import { ref } from 'vue'
-import { BookOpen, Layers, LayoutGrid, Printer, Zap, PhoneCall } from 'lucide-vue-next'
+import PackageList from '@/components/PackageList.vue'
+import PackageEditor from '@/components/PackageEditor.vue'
+import PackageViewer from '@/components/PackageViewer.vue'
+import FollowUpPanel from '@/components/FollowUpPanel.vue'
+import FamilyShare from '@/components/FamilyShare.vue'
+import StatsPanel from '@/components/StatsPanel.vue'
+import { ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  BookOpen, Layers, LayoutGrid, Printer, Zap, PhoneCall,
+  BookMarked, ClipboardList, Users, BarChart3
+} from 'lucide-vue-next'
 
-const activeTab = ref<'input' | 'group' | 'layout' | 'print' | 'scenario' | 'drill'>('input')
+const route = useRoute()
+const router = useRouter()
+
+type TabKey = 'input' | 'group' | 'layout' | 'print' | 'scenario' | 'drill' | 'packages' | 'followups' | 'share' | 'stats'
+
+const activeTab = ref<TabKey>((route.query.tab as TabKey) || 'input')
+
+const packageView = ref<'list' | 'edit' | 'view'>('list')
+const currentPackageId = ref('')
 
 const tabs = [
   { key: 'input' as const, label: '联系人录入', icon: BookOpen },
@@ -17,7 +35,38 @@ const tabs = [
   { key: 'print' as const, label: '打印预览', icon: Printer },
   { key: 'scenario' as const, label: '场景预演', icon: Zap },
   { key: 'drill' as const, label: '应急演练', icon: PhoneCall },
+  { key: 'packages' as const, label: '回听资料包', icon: BookMarked },
+  { key: 'followups' as const, label: '待跟进事项', icon: ClipboardList },
+  { key: 'share' as const, label: '家庭共享', icon: Users },
+  { key: 'stats' as const, label: '数据统计', icon: BarChart3 },
 ]
+
+watch(activeTab, (val) => {
+  router.replace({ query: { ...route.query, tab: val } })
+  if (val === 'packages') {
+    packageView.value = 'list'
+  }
+})
+
+watch(() => route.query.tab, (val) => {
+  if (val && typeof val === 'string') {
+    activeTab.value = val as TabKey
+  }
+})
+
+function handleEditPackage(id: string) {
+  currentPackageId.value = id
+  packageView.value = 'edit'
+}
+
+function handleViewPackage(id: string) {
+  currentPackageId.value = id
+  packageView.value = 'view'
+}
+
+function handleBackPackageList() {
+  packageView.value = 'list'
+}
 </script>
 
 <template>
@@ -89,6 +138,38 @@ const tabs = [
 
         <div class="lg:col-span-12" v-show="activeTab === 'drill'">
           <DrillDrill />
+        </div>
+
+        <div class="lg:col-span-12" v-show="activeTab === 'packages'">
+          <PackageList
+            v-if="packageView === 'list'"
+            @edit="handleEditPackage"
+            @play="handleViewPackage"
+          />
+          <PackageEditor
+            v-else-if="packageView === 'edit'"
+            :package-id="currentPackageId"
+            @back="handleBackPackageList"
+            @play="handleViewPackage"
+          />
+          <PackageViewer
+            v-else-if="packageView === 'view'"
+            :package-id="currentPackageId"
+            @back="handleBackPackageList"
+            @edit="handleEditPackage"
+          />
+        </div>
+
+        <div class="lg:col-span-12" v-show="activeTab === 'followups'">
+          <FollowUpPanel />
+        </div>
+
+        <div class="lg:col-span-12" v-show="activeTab === 'share'">
+          <FamilyShare />
+        </div>
+
+        <div class="lg:col-span-12" v-show="activeTab === 'stats'">
+          <StatsPanel />
         </div>
       </div>
     </main>

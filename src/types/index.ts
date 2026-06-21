@@ -155,3 +155,79 @@ export const DRILL_MODES = [
 export function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 9)
 }
+
+export interface PackageContact {
+  contactId: string
+  contactName: string
+  contactPhone: string
+  contactGroup: ContactGroup
+  contactNote: string
+  customNote: string
+  order: number
+  isKeyPoint: boolean
+}
+
+export interface ListeningPackage {
+  id: string
+  title: string
+  purpose: string
+  guideText: string
+  familyReminder: string
+  contacts: PackageContact[]
+  isHighlighted: boolean
+  order: number
+  createdAt: number
+  updatedAt: number
+}
+
+export type FollowUpPriority = 'high' | 'medium' | 'low'
+export type FollowUpStatus = 'pending' | 'done'
+
+export interface FollowUpItem {
+  id: string
+  title: string
+  description: string
+  contactId: string | null
+  contactName: string
+  dueDate: number | null
+  priority: FollowUpPriority
+  status: FollowUpStatus
+  createdAt: number
+  completedAt: number | null
+}
+
+export const FOLLOW_UP_PRIORITY_LABELS: Record<FollowUpPriority, string> = {
+  high: '高优先级',
+  medium: '中优先级',
+  low: '低优先级',
+}
+
+export const FOLLOW_UP_PRIORITY_COLORS: Record<FollowUpPriority, string> = {
+  high: '#D94F4F',
+  medium: '#E8A838',
+  low: '#7BAE7F',
+}
+
+export const FOLLOW_UP_STATUS_LABELS: Record<FollowUpStatus, string> = {
+  pending: '待处理',
+  done: '已完成',
+}
+
+export interface StatsData {
+  totalContacts: number
+  emergencyContacts: number
+  groupCounts: Record<ContactGroup, number>
+  totalPackages: number
+  highlightedPackages: number
+  totalDrills: number
+  totalFollowUps: number
+  completedFollowUps: number
+  pendingFollowUps: number
+}
+
+export const PACKAGE_DEFAULT_GUIDE_TEXTS = [
+  '您好，这是您的紧急联系资料包，请慢慢查看。',
+  '请记住这些重要的联系人和电话号码。',
+  '遇到紧急情况时，请按照顺序联系。',
+  '每天回顾一遍，加深记忆。',
+]
