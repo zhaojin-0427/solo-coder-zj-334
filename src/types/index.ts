@@ -389,3 +389,223 @@ export const PACKAGE_DEFAULT_GUIDE_TEXTS = [
   '遇到紧急情况时，请按照顺序联系。',
   '每天回顾一遍，加深记忆。',
 ]
+
+export type LeavingChecklistScene = 'hospital-visit' | 'family-visit' | 'grocery' | 'community' | 'emergency-evac'
+
+export const LEAVING_SCENES: { id: LeavingChecklistScene; name: string; icon: string; color: string; description: string }[] = [
+  { id: 'hospital-visit', name: '去医院复诊', icon: 'heart-pulse', color: '#D94F4F', description: '前往医院看病、复诊或检查' },
+  { id: 'family-visit', name: '短途探亲', icon: 'users', color: '#E8652B', description: '去亲戚家做客或探亲' },
+  { id: 'grocery', name: '楼下买菜', icon: 'shopping-bag', color: '#7BAE7F', description: '日常买菜或采购生活用品' },
+  { id: 'community', name: '社区活动', icon: 'building-2', color: '#5B9BD5', description: '参加社区组织的活动或事务' },
+  { id: 'emergency-evac', name: '紧急避险', icon: 'alert-triangle', color: '#E8A838', description: '遇到紧急情况需要疏散避险' },
+]
+
+export const LEAVING_SCENE_LABELS: Record<LeavingChecklistScene, string> = {
+  'hospital-visit': '去医院复诊',
+  'family-visit': '短途探亲',
+  'grocery': '楼下买菜',
+  'community': '社区活动',
+  'emergency-evac': '紧急避险',
+}
+
+export const LEAVING_SCENE_ICONS: Record<LeavingChecklistScene, string> = {
+  'hospital-visit': 'heart-pulse',
+  'family-visit': 'users',
+  'grocery': 'shopping-bag',
+  'community': 'building-2',
+  'emergency-evac': 'alert-triangle',
+}
+
+export const LEAVING_SCENE_COLORS: Record<LeavingChecklistScene, string> = {
+  'hospital-visit': '#D94F4F',
+  'family-visit': '#E8652B',
+  'grocery': '#7BAE7F',
+  'community': '#5B9BD5',
+  'emergency-evac': '#E8A838',
+}
+
+export type ChecklistItemCategory = 'contact-card' | 'id' | 'medicine' | 'key' | 'phone' | 'safety-check' | 'emergency-item'
+
+export const CHECKLIST_ITEM_CATEGORY_LABELS: Record<ChecklistItemCategory, string> = {
+  'contact-card': '联系人卡',
+  'id': '证件',
+  'medicine': '药品',
+  'key': '钥匙',
+  'phone': '手机',
+  'safety-check': '电源/燃气检查',
+  'emergency-item': '应急物品',
+}
+
+export const CHECKLIST_ITEM_CATEGORY_ICONS: Record<ChecklistItemCategory, string> = {
+  'contact-card': 'id-card',
+  'id': 'credit-card',
+  'medicine': 'pill',
+  'key': 'key',
+  'phone': 'smartphone',
+  'safety-check': 'shield-check',
+  'emergency-item': 'package',
+}
+
+export const CHECKLIST_ITEM_CATEGORY_COLORS: Record<ChecklistItemCategory, string> = {
+  'contact-card': '#5B9BD5',
+  'id': '#9B6DB7',
+  'medicine': '#D94F4F',
+  'key': '#E8A838',
+  'phone': '#7BAE7F',
+  'safety-check': '#5C9460',
+  'emergency-item': '#E8652B',
+}
+
+export interface ChecklistItem {
+  id: string
+  name: string
+  category: ChecklistItemCategory
+  order: number
+  isKeyPoint: boolean
+  reminder: string
+  stepNote: string
+  linkedEmergencyItemId: string | null
+  linkedEmergencyItemName: string
+  linkedContactId: string | null
+  linkedContactName: string
+}
+
+export interface LeavingChecklist {
+  id: string
+  scene: LeavingChecklistScene
+  name: string
+  description: string
+  items: ChecklistItem[]
+  linkedContactIds: string[]
+  linkedContactNames: string
+  estimatedDuration: string
+  reminderText: string
+  keySteps: string
+  createdAt: number
+  updatedAt: number
+  order: number
+  isHighlighted: boolean
+}
+
+export type ChecklistStepStatus = 'pending' | 'done' | 'not-found' | 'skip' | 'need-help'
+
+export const CHECKLIST_STEP_STATUS_LABELS: Record<ChecklistStepStatus, string> = {
+  'pending': '待确认',
+  'done': '已带上',
+  'not-found': '找不到',
+  'skip': '不需要',
+  'need-help': '需要家人帮忙',
+}
+
+export const CHECKLIST_STEP_STATUS_COLORS: Record<ChecklistStepStatus, string> = {
+  'pending': '#B8A08A',
+  'done': '#5C9460',
+  'not-found': '#D94F4F',
+  'skip': '#8B7355',
+  'need-help': '#5B9BD5',
+}
+
+export interface ExecutingStep {
+  itemId: string
+  itemName: string
+  category: ChecklistItemCategory
+  status: ChecklistStepStatus
+  note: string
+  linkedEmergencyItemId: string | null
+  linkedEmergencyItemName: string
+  linkedContactId: string | null
+  linkedContactName: string
+  isKeyPoint: boolean
+  timestamp: number
+}
+
+export type LeavingSessionStatus = 'selecting' | 'executing' | 'checking' | 'return-confirm' | 'completed'
+
+export interface LeavingSession {
+  id: string
+  checklistId: string
+  checklistName: string
+  scene: LeavingChecklistScene
+  status: LeavingSessionStatus
+  steps: ExecutingStep[]
+  currentStepIndex: number
+  startedAt: number
+  estimatedEndAt: number | null
+  finishedAt: number | null
+  returnConfirmedAt: number | null
+}
+
+export type ReturnConfirmType = 'safe-home' | 'forgot-items' | 'need-notes'
+
+export const RETURN_CONFIRM_LABELS: Record<ReturnConfirmType, string> = {
+  'safe-home': '已安全到家',
+  'forgot-items': '忘带物品',
+  'need-notes': '需要补充说明',
+}
+
+export const RETURN_CONFIRM_COLORS: Record<ReturnConfirmType, string> = {
+  'safe-home': '#5C9460',
+  'forgot-items': '#D94F4F',
+  'need-notes': '#E8A838',
+}
+
+export interface ReturnConfirmRecord {
+  id: string
+  sessionId: string
+  checklistId: string
+  checklistName: string
+  scene: LeavingChecklistScene
+  confirmType: ReturnConfirmType
+  forgotItems: string[]
+  notes: string
+  createdAt: number
+}
+
+export type ChecklistActivityAction =
+  | 'checklist-created'
+  | 'checklist-updated'
+  | 'checklist-deleted'
+  | 'session-started'
+  | 'session-abnormal'
+  | 'session-completed'
+  | 'return-confirmed'
+
+export interface ChecklistActivity {
+  id: string
+  action: ChecklistActivityAction
+  checklistId: string
+  checklistName: string
+  sessionId: string | null
+  detail: string
+  timestamp: number
+}
+
+export interface ChecklistFollowUpSource {
+  checklistId: string
+  checklistName: string
+  sessionId: string
+  itemId: string
+  itemName: string
+  stepIndex: number
+  linkedEmergencyItemId: string | null
+  linkedEmergencyItemName: string
+  linkedContactId: string | null
+  linkedContactName: string
+}
+
+declare module '@/types' {
+  interface FollowUpItem {
+    checklistSource?: ChecklistFollowUpSource | null
+  }
+}
+
+export interface ChecklistStatsData {
+  totalChecklists: number
+  sceneExecutionCounts: Record<LeavingChecklistScene, number>
+  abnormalStepDistribution: Record<ChecklistStepStatus, number>
+  returnConfirmRatio: Record<ReturnConfirmType, number>
+  totalReturnConfirms: number
+  highRiskStepCompletionRate: number
+  totalSessions: number
+  completedSessions: number
+}

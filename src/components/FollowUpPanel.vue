@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { useFollowUpStore, useContactStore, useEmergencyStore } from '@/stores'
 import {
   CheckCircle2, Circle, Plus, Trash2, Clock, AlertCircle,
-  Calendar, User, ChevronDown, X, Edit2, MapPin
+  Calendar, User, ChevronDown, X, Edit2, MapPin, List, Hash, Package
 } from 'lucide-vue-next'
 import type { FollowUpPriority } from '@/types'
 import { FOLLOW_UP_PRIORITY_LABELS, FOLLOW_UP_PRIORITY_COLORS, FOLLOW_UP_STATUS_LABELS } from '@/types'
@@ -181,6 +181,43 @@ const priorityOptions = [
                 <span>{{ isOverdue(item.dueDate) ? '已过期：' : '' }}{{ formatDate(item.dueDate) }}</span>
               </div>
             </div>
+
+            <div
+              v-if="item.checklistSource"
+              class="mt-3 border border-[#5B9BD5]/30 rounded-xl bg-[#5B9BD5]/5 p-3"
+            >
+              <div class="flex items-center gap-1.5 text-xs font-semibold text-[#4A8BC2] mb-2">
+                <List class="h-3.5 w-3.5" />
+                <span>清单来源信息</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-warm-600">
+                <div class="flex items-center gap-1.5">
+                  <List class="h-3 w-3 text-[#5B9BD5] shrink-0" />
+                  <span class="text-warm-400">清单：</span>
+                  <span class="font-medium truncate">{{ item.checklistSource.checklistName }}</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <Hash class="h-3 w-3 text-[#5B9BD5] shrink-0" />
+                  <span class="text-warm-400">步骤：</span>
+                  <span class="font-medium">第 {{ item.checklistSource.stepIndex + 1 }} 步</span>
+                </div>
+                <div class="flex items-center gap-1.5 sm:col-span-2">
+                  <MapPin class="h-3 w-3 text-[#5B9BD5] shrink-0" />
+                  <span class="text-warm-400">步骤名称：</span>
+                  <span class="font-medium truncate">{{ item.checklistSource.itemName }}</span>
+                </div>
+                <div v-if="item.checklistSource.linkedEmergencyItemName" class="flex items-center gap-1.5">
+                  <Package class="h-3 w-3 text-[#5B9BD5] shrink-0" />
+                  <span class="text-warm-400">物品：</span>
+                  <span class="font-medium truncate">{{ item.checklistSource.linkedEmergencyItemName }}</span>
+                </div>
+                <div v-if="item.checklistSource.linkedContactName" class="flex items-center gap-1.5">
+                  <User class="h-3 w-3 text-[#5B9BD5] shrink-0" />
+                  <span class="text-warm-400">联系人：</span>
+                  <span class="font-medium truncate">{{ item.checklistSource.linkedContactName }}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="flex items-center gap-1 shrink-0">
@@ -234,6 +271,43 @@ const priorityOptions = [
             <p class="text-xs text-warm-400 mt-1">
               完成于 {{ formatDate(item.completedAt) }}
             </p>
+
+            <div
+              v-if="item.checklistSource"
+              class="mt-3 border border-[#5B9BD5]/25 rounded-xl bg-[#5B9BD5]/5 p-3"
+            >
+              <div class="flex items-center gap-1.5 text-xs font-semibold text-[#4A8BC2] mb-2">
+                <List class="h-3.5 w-3.5" />
+                <span>清单来源信息</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-warm-500">
+                <div class="flex items-center gap-1.5">
+                  <List class="h-3 w-3 text-[#5B9BD5] shrink-0" />
+                  <span class="text-warm-400">清单：</span>
+                  <span class="font-medium truncate">{{ item.checklistSource.checklistName }}</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <Hash class="h-3 w-3 text-[#5B9BD5] shrink-0" />
+                  <span class="text-warm-400">步骤：</span>
+                  <span class="font-medium">第 {{ item.checklistSource.stepIndex + 1 }} 步</span>
+                </div>
+                <div class="flex items-center gap-1.5 sm:col-span-2">
+                  <MapPin class="h-3 w-3 text-[#5B9BD5] shrink-0" />
+                  <span class="text-warm-400">步骤名称：</span>
+                  <span class="font-medium truncate">{{ item.checklistSource.itemName }}</span>
+                </div>
+                <div v-if="item.checklistSource.linkedEmergencyItemName" class="flex items-center gap-1.5">
+                  <Package class="h-3 w-3 text-[#5B9BD5] shrink-0" />
+                  <span class="text-warm-400">物品：</span>
+                  <span class="font-medium truncate">{{ item.checklistSource.linkedEmergencyItemName }}</span>
+                </div>
+                <div v-if="item.checklistSource.linkedContactName" class="flex items-center gap-1.5">
+                  <User class="h-3 w-3 text-[#5B9BD5] shrink-0" />
+                  <span class="text-warm-400">联系人：</span>
+                  <span class="font-medium truncate">{{ item.checklistSource.linkedContactName }}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <button

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
-import type { Contact, ContactGroup, LayoutConfig, CardFormat, FontSize, DrillSession, DrillHistoryRecord, DrillContactAttempt, ContactResult, ListeningPackage, PackageContact, FollowUpItem, FollowUpPriority, FollowUpStatus, StatsData, EmergencyItem, EmergencyItemType, EmergencyUrgency, FindFeedback, EmergencyItemActivity } from '@/types'
-import { generateId, GROUP_LABELS, GROUP_COLORS, CONTACT_RESULT_LABELS, DRILL_MODES, PACKAGE_DEFAULT_GUIDE_TEXTS, FOLLOW_UP_PRIORITY_LABELS, FOLLOW_UP_STATUS_LABELS, EMERGENCY_ITEM_TYPE_LABELS, EMERGENCY_ITEM_TYPE_COLORS, FIND_FEEDBACK_LABELS } from '@/types'
+import type { Contact, ContactGroup, LayoutConfig, CardFormat, FontSize, DrillSession, DrillHistoryRecord, DrillContactAttempt, ContactResult, ListeningPackage, PackageContact, FollowUpItem, FollowUpPriority, FollowUpStatus, StatsData, EmergencyItem, EmergencyItemType, EmergencyUrgency, FindFeedback, EmergencyItemActivity, LeavingChecklist, LeavingChecklistScene, ChecklistItem, ChecklistItemCategory, LeavingSession, LeavingSessionStatus, ExecutingStep, ChecklistStepStatus, ReturnConfirmRecord, ReturnConfirmType, ChecklistActivity, ChecklistStatsData, ChecklistFollowUpSource } from '@/types'
+import { generateId, GROUP_LABELS, GROUP_COLORS, CONTACT_RESULT_LABELS, DRILL_MODES, PACKAGE_DEFAULT_GUIDE_TEXTS, FOLLOW_UP_PRIORITY_LABELS, FOLLOW_UP_STATUS_LABELS, EMERGENCY_ITEM_TYPE_LABELS, EMERGENCY_ITEM_TYPE_COLORS, FIND_FEEDBACK_LABELS, LEAVING_SCENES, LEAVING_SCENE_LABELS, CHECKLIST_ITEM_CATEGORY_LABELS } from '@/types'
 
 const STORAGE_KEY_CONTACTS = 'phonebook-contacts'
 const STORAGE_KEY_LAYOUT = 'phonebook-layout'
@@ -1084,5 +1084,574 @@ export const useStatsStore = defineStore('stats', () => {
 
   return {
     stats,
+  }
+})
+
+const STORAGE_KEY_LEAVING_CHECKLISTS = 'phonebook-leaving-checklists'
+const STORAGE_KEY_LEAVING_SESSION = 'phonebook-leaving-session'
+const STORAGE_KEY_LEAVING_HISTORY = 'phonebook-leaving-history'
+const STORAGE_KEY_RETURN_CONFIRMS = 'phonebook-return-confirms'
+const STORAGE_KEY_CHECKLIST_ACTIVITIES = 'phonebook-checklist-activities'
+
+function buildDefaultChecklistItems(scene: LeavingChecklistScene): ChecklistItem[] {
+  const templates: Record<LeavingChecklistScene, { name: string; category: ChecklistItemCategory; isKeyPoint: boolean; reminder: string }[]> = {
+    'hospital-visit': [
+      { name: '紧急联系卡', category: 'contact-card', isKeyPoint: true, reminder: '带上打印好的联系人卡' },
+      { name: '身份证', category: 'id', isKeyPoint: true, reminder: '挂号和就诊必需' },
+      { name: '医保卡', category: 'id', isKeyPoint: true, reminder: '用于医保结算' },
+      { name: '病历本', category: 'medicine', isKeyPoint: true, reminder: '包含过往就诊记录' },
+      { name: '常用药品', category: 'medicine', isKeyPoint: true, reminder: '按服药清单准备' },
+      { name: '家门钥匙', category: 'key', isKeyPoint: true, reminder: '别把自己锁在门外' },
+      { name: '手机', category: 'phone', isKeyPoint: true, reminder: '确认电量充足' },
+      { name: '手机充电器', category: 'emergency-item', isKeyPoint: false, reminder: '长时间外出必备' },
+      { name: '复诊预约单', category: 'emergency-item', isKeyPoint: true, reminder: '确认时间和科室' },
+    ],
+    'family-visit': [
+      { name: '紧急联系卡', category: 'contact-card', isKeyPoint: true, reminder: '随身携带应急' },
+      { name: '家门钥匙', category: 'key', isKeyPoint: true, reminder: '回家要开门' },
+      { name: '手机', category: 'phone', isKeyPoint: true, reminder: '保持通讯畅通' },
+      { name: '身份证', category: 'id', isKeyPoint: false, reminder: '长途出行建议携带' },
+      { name: '伴手礼/物品', category: 'emergency-item', isKeyPoint: false, reminder: '给亲戚带的礼物' },
+      { name: '常用药', category: 'medicine', isKeyPoint: true, reminder: '按时服药别忘记' },
+    ],
+    'grocery': [
+      { name: '家门钥匙', category: 'key', isKeyPoint: true, reminder: '买菜回来要开门' },
+      { name: '手机', category: 'phone', isKeyPoint: true, reminder: '支付和联系用' },
+      { name: '购物袋', category: 'emergency-item', isKeyPoint: false, reminder: '环保又方便' },
+      { name: '买菜清单', category: 'emergency-item', isKeyPoint: false, reminder: '避免买错或漏买' },
+    ],
+    'community': [
+      { name: '紧急联系卡', category: 'contact-card', isKeyPoint: true, reminder: '活动时间长时必备' },
+      { name: '家门钥匙', category: 'key', isKeyPoint: true, reminder: '活动结束回家' },
+      { name: '手机', category: 'phone', isKeyPoint: true, reminder: '保持联系' },
+      { name: '老年证/优待证', category: 'id', isKeyPoint: false, reminder: '活动可能需要' },
+      { name: '常用药', category: 'medicine', isKeyPoint: true, reminder: '外出时间长要按时吃' },
+    ],
+    'emergency-evac': [
+      { name: '紧急联系卡', category: 'contact-card', isKeyPoint: true, reminder: '第一时间带上' },
+      { name: '身份证', category: 'id', isKeyPoint: true, reminder: '证明身份' },
+      { name: '家门钥匙', category: 'key', isKeyPoint: true, reminder: '情况稳定后回家' },
+      { name: '手机', category: 'phone', isKeyPoint: true, reminder: '联系家人和救援' },
+      { name: '应急药品包', category: 'medicine', isKeyPoint: true, reminder: '急救和常用药' },
+      { name: '关闭燃气', category: 'safety-check', isKeyPoint: true, reminder: '总阀门顺时针关闭' },
+      { name: '关闭电源', category: 'safety-check', isKeyPoint: true, reminder: '拉下电闸或拔插头' },
+      { name: '手电筒', category: 'emergency-item', isKeyPoint: true, reminder: '断电时照明' },
+      { name: '饮用水', category: 'emergency-item', isKeyPoint: true, reminder: '至少两瓶' },
+      { name: '薄外套', category: 'emergency-item', isKeyPoint: false, reminder: '夜间或降温用' },
+    ],
+  }
+  const template = templates[scene] || []
+  return template.map((t, i) => ({
+    id: generateId(),
+    name: t.name,
+    category: t.category,
+    order: i,
+    isKeyPoint: t.isKeyPoint,
+    reminder: t.reminder,
+    stepNote: '',
+    linkedEmergencyItemId: null,
+    linkedEmergencyItemName: '',
+    linkedContactId: null,
+    linkedContactName: '',
+  }))
+}
+
+const DEFAULT_CHECKLISTS: LeavingChecklist[] = LEAVING_SCENES.map((scene, idx) => ({
+  id: 'lc-' + scene.id,
+  scene: scene.id,
+  name: scene.name,
+  description: scene.description,
+  items: buildDefaultChecklistItems(scene.id),
+  linkedContactIds: ['c1', 'c2'],
+  linkedContactNames: '张小明（儿子）、李小红（女儿）',
+  estimatedDuration: scene.id === 'grocery' ? '30分钟-1小时' : scene.id === 'hospital-visit' ? '2-4小时' : scene.id === 'emergency-evac' ? '视情况而定' : '1-3小时',
+  reminderText: scene.id === 'emergency-evac' ? '保持冷静，按步骤逐一检查，安全第一！' : '出门前逐项检查，不要着急，确认安全再关门。',
+  keySteps: scene.id === 'emergency-evac' ? '1.先关火关电关燃气\n2.带好随身关键物品\n3.确认邻居是否需要帮助\n4.沿安全通道撤离' : '1.按清单逐项检查\n2.重点项不能遗漏\n3.锁好门再离开',
+  createdAt: Date.now() - 86400000 * (idx + 1),
+  updatedAt: Date.now() - 86400000 * idx,
+  order: idx,
+  isHighlighted: scene.id === 'hospital-visit' || scene.id === 'emergency-evac',
+}))
+
+export const useLeavingChecklistStore = defineStore('leavingChecklist', () => {
+  const checklists = ref<LeavingChecklist[]>(
+    loadFromStorage<LeavingChecklist[]>(STORAGE_KEY_LEAVING_CHECKLISTS, DEFAULT_CHECKLISTS)
+  )
+
+  const sessionStore = useLeavingSessionStore()
+
+  const sortedChecklists = computed(() =>
+    [...checklists.value].sort((a, b) => {
+      if (a.isHighlighted !== b.isHighlighted) return a.isHighlighted ? -1 : 1
+      return a.order - b.order
+    })
+  )
+
+  function getChecklistById(id: string): LeavingChecklist | undefined {
+    return checklists.value.find(c => c.id === id)
+  }
+
+  function createChecklist(data: Partial<LeavingChecklist> & { scene: LeavingChecklistScene }) {
+    const now = Date.now()
+    const newChecklist: LeavingChecklist = {
+      id: generateId(),
+      scene: data.scene,
+      name: data.name || LEAVING_SCENE_LABELS[data.scene],
+      description: data.description || LEAVING_SCENES.find(s => s.id === data.scene)?.description || '',
+      items: data.items && data.items.length > 0 ? data.items : buildDefaultChecklistItems(data.scene),
+      linkedContactIds: data.linkedContactIds || [],
+      linkedContactNames: data.linkedContactNames || '',
+      estimatedDuration: data.estimatedDuration || '1-2小时',
+      reminderText: data.reminderText || '出门前请逐项检查，确认好再离开。',
+      keySteps: data.keySteps || '',
+      createdAt: now,
+      updatedAt: now,
+      order: checklists.value.length,
+      isHighlighted: data.isHighlighted || false,
+    }
+    checklists.value.push(newChecklist)
+    sessionStore.addActivity('checklist-created', newChecklist.id, newChecklist.name, null, `创建了离家清单"${newChecklist.name}"`)
+    return newChecklist
+  }
+
+  function updateChecklist(id: string, data: Partial<LeavingChecklist>) {
+    const idx = checklists.value.findIndex(c => c.id === id)
+    if (idx !== -1) {
+      const old = checklists.value[idx]
+      checklists.value[idx] = { ...checklists.value[idx], ...data, updatedAt: Date.now() }
+      sessionStore.addActivity('checklist-updated', id, old.name, null, `更新了离家清单"${old.name}"`)
+    }
+  }
+
+  function deleteChecklist(id: string) {
+    const checklist = checklists.value.find(c => c.id === id)
+    checklists.value = checklists.value.filter(c => c.id !== id)
+    checklists.value.forEach((c, i) => { c.order = i })
+    if (checklist) {
+      sessionStore.addActivity('checklist-deleted', id, checklist.name, null, `删除了离家清单"${checklist.name}"`)
+    }
+  }
+
+  function toggleHighlight(id: string) {
+    const cl = checklists.value.find(c => c.id === id)
+    if (cl) {
+      cl.isHighlighted = !cl.isHighlighted
+      cl.updatedAt = Date.now()
+    }
+  }
+
+  function addItem(checklistId: string, data: Partial<ChecklistItem> & { category: ChecklistItemCategory; name: string }) {
+    const cl = checklists.value.find(c => c.id === checklistId)
+    if (!cl) return
+    const newItem: ChecklistItem = {
+      id: generateId(),
+      name: data.name,
+      category: data.category,
+      order: cl.items.length,
+      isKeyPoint: data.isKeyPoint ?? false,
+      reminder: data.reminder || '',
+      stepNote: data.stepNote || '',
+      linkedEmergencyItemId: data.linkedEmergencyItemId ?? null,
+      linkedEmergencyItemName: data.linkedEmergencyItemName || '',
+      linkedContactId: data.linkedContactId ?? null,
+      linkedContactName: data.linkedContactName || '',
+    }
+    cl.items.push(newItem)
+    cl.updatedAt = Date.now()
+    return newItem
+  }
+
+  function updateItem(checklistId: string, itemId: string, data: Partial<ChecklistItem>) {
+    const cl = checklists.value.find(c => c.id === checklistId)
+    if (!cl) return
+    const idx = cl.items.findIndex(i => i.id === itemId)
+    if (idx !== -1) {
+      cl.items[idx] = { ...cl.items[idx], ...data }
+      cl.updatedAt = Date.now()
+    }
+  }
+
+  function removeItem(checklistId: string, itemId: string) {
+    const cl = checklists.value.find(c => c.id === checklistId)
+    if (!cl) return
+    cl.items = cl.items.filter(i => i.id !== itemId)
+    cl.items.forEach((i, idx) => { i.order = idx })
+    cl.updatedAt = Date.now()
+  }
+
+  function reorderItems(checklistId: string, fromIndex: number, toIndex: number) {
+    const cl = checklists.value.find(c => c.id === checklistId)
+    if (!cl) return
+    const arr = [...cl.items].sort((a, b) => a.order - b.order)
+    const [moved] = arr.splice(fromIndex, 1)
+    arr.splice(toIndex, 0, moved)
+    arr.forEach((i, idx) => { i.order = idx })
+    cl.items = [...arr]
+    cl.updatedAt = Date.now()
+  }
+
+  function syncWithContacts(contacts: Contact[]) {
+    for (const cl of checklists.value) {
+      const names = cl.linkedContactIds
+        .map(id => contacts.find(c => c.id === id)?.name)
+        .filter(Boolean) as string[]
+      cl.linkedContactNames = names.join('、')
+    }
+  }
+
+  function syncWithEmergencyItems(items: EmergencyItem[]) {
+    for (const cl of checklists.value) {
+      for (const it of cl.items) {
+        if (it.linkedEmergencyItemId) {
+          const live = items.find(ei => ei.id === it.linkedEmergencyItemId)
+          it.linkedEmergencyItemName = live?.name || it.linkedEmergencyItemName || '物品已删除'
+        }
+      }
+    }
+  }
+
+  watch(checklists, (val) => saveToStorage(STORAGE_KEY_LEAVING_CHECKLISTS, val), { deep: true })
+
+  return {
+    checklists,
+    sortedChecklists,
+    getChecklistById,
+    createChecklist,
+    updateChecklist,
+    deleteChecklist,
+    toggleHighlight,
+    addItem,
+    updateItem,
+    removeItem,
+    reorderItems,
+    syncWithContacts,
+    syncWithEmergencyItems,
+  }
+})
+
+export const useLeavingSessionStore = defineStore('leavingSession', () => {
+  const followUpStore = useFollowUpStore()
+  const session = ref<LeavingSession | null>(loadFromStorage<LeavingSession | null>(STORAGE_KEY_LEAVING_SESSION, null))
+  const history = ref<LeavingSession[]>(loadFromStorage<LeavingSession[]>(STORAGE_KEY_LEAVING_HISTORY, []))
+  const returnConfirms = ref<ReturnConfirmRecord[]>(loadFromStorage<ReturnConfirmRecord[]>(STORAGE_KEY_RETURN_CONFIRMS, []))
+  const activities = ref<ChecklistActivity[]>(loadFromStorage<ChecklistActivity[]>(STORAGE_KEY_CHECKLIST_ACTIVITIES, []))
+
+  const hasActiveSession = computed(() =>
+    session.value !== null && (session.value.status === 'executing' || session.value.status === 'checking')
+  )
+
+  const remainingSteps = computed(() => {
+    if (!session.value) return 0
+    return session.value.steps.filter(s => s.status === 'pending').length
+  })
+
+  const keyPointSteps = computed(() => {
+    if (!session.value) return []
+    return session.value.steps.filter(s => s.isKeyPoint)
+  })
+
+  const unconfirmedKeyPoints = computed(() => {
+    return keyPointSteps.value.filter(s => s.status === 'pending' || s.status === 'not-found')
+  })
+
+  function startSession(checklist: LeavingChecklist) {
+    const now = Date.now()
+    const steps: ExecutingStep[] = checklist.items
+      .sort((a, b) => a.order - b.order)
+      .map(item => ({
+        itemId: item.id,
+        itemName: item.name,
+        category: item.category,
+        status: 'pending' as ChecklistStepStatus,
+        note: '',
+        linkedEmergencyItemId: item.linkedEmergencyItemId,
+        linkedEmergencyItemName: item.linkedEmergencyItemName,
+        linkedContactId: item.linkedContactId,
+        linkedContactName: item.linkedContactName,
+        isKeyPoint: item.isKeyPoint,
+        timestamp: 0,
+      }))
+    session.value = {
+      id: generateId(),
+      checklistId: checklist.id,
+      checklistName: checklist.name,
+      scene: checklist.scene,
+      status: 'executing',
+      steps,
+      currentStepIndex: 0,
+      startedAt: now,
+      estimatedEndAt: null,
+      finishedAt: null,
+      returnConfirmedAt: null,
+    }
+    addActivity('session-started', checklist.id, checklist.name, session.value.id, `开始执行离家清单"${checklist.name}"`)
+  }
+
+  function setStepStatus(stepIndex: number, status: ChecklistStepStatus, note: string = '') {
+    if (!session.value) return
+    const step = session.value.steps[stepIndex]
+    if (!step) return
+    step.status = status
+    step.note = note
+    step.timestamp = Date.now()
+
+    if (status === 'need-help') {
+      const source: ChecklistFollowUpSource = {
+        checklistId: session.value.checklistId,
+        checklistName: session.value.checklistName,
+        sessionId: session.value.id,
+        itemId: step.itemId,
+        itemName: step.itemName,
+        stepIndex,
+        linkedEmergencyItemId: step.linkedEmergencyItemId,
+        linkedEmergencyItemName: step.linkedEmergencyItemName,
+        linkedContactId: step.linkedContactId,
+        linkedContactName: step.linkedContactName,
+      }
+      followUpStore.addItem({
+        title: `协助确认"${step.itemName}"`,
+        description: `老人在执行离家清单"${session.value.checklistName}"的第${stepIndex + 1}步"${step.itemName}"时需要家人帮忙。${note ? '备注：' + note : ''}`,
+        priority: step.isKeyPoint ? 'high' : 'medium',
+        sourceItemId: step.linkedEmergencyItemId,
+        sourceItemName: step.linkedEmergencyItemName,
+        contactId: step.linkedContactId,
+        contactName: step.linkedContactName,
+        checklistSource: source,
+      })
+      addActivity('session-abnormal', session.value.checklistId, session.value.checklistName, session.value.id,
+        `"${session.value.checklistName}"第${stepIndex + 1}步"${step.itemName}"需要家人帮忙`)
+    }
+
+    if (status === 'not-found') {
+      const source: ChecklistFollowUpSource = {
+        checklistId: session.value.checklistId,
+        checklistName: session.value.checklistName,
+        sessionId: session.value.id,
+        itemId: step.itemId,
+        itemName: step.itemName,
+        stepIndex,
+        linkedEmergencyItemId: step.linkedEmergencyItemId,
+        linkedEmergencyItemName: step.linkedEmergencyItemName,
+        linkedContactId: step.linkedContactId,
+        linkedContactName: step.linkedContactName,
+      }
+      followUpStore.addItem({
+        title: `找不到"${step.itemName}"，请确认位置`,
+        description: `老人在执行离家清单"${session.value.checklistName}"时找不到"${step.itemName}"。${note ? '备注：' + note : ''}。${step.linkedEmergencyItemName ? '关联物品：' + step.linkedEmergencyItemName : ''}`,
+        priority: step.isKeyPoint ? 'high' : 'medium',
+        sourceItemId: step.linkedEmergencyItemId,
+        sourceItemName: step.linkedEmergencyItemName,
+        checklistSource: source,
+      })
+      addActivity('session-abnormal', session.value.checklistId, session.value.checklistName, session.value.id,
+        `"${session.value.checklistName}"第${stepIndex + 1}步"${step.itemName}"找不到`)
+    }
+  }
+
+  function goToStep(index: number) {
+    if (!session.value) return
+    if (index >= 0 && index < session.value.steps.length) {
+      session.value.currentStepIndex = index
+    }
+  }
+
+  function nextStep() {
+    if (!session.value) return
+    const next = session.value.currentStepIndex + 1
+    if (next < session.value.steps.length) {
+      session.value.currentStepIndex = next
+    }
+  }
+
+  function prevStep() {
+    if (!session.value) return
+    const prev = session.value.currentStepIndex - 1
+    if (prev >= 0) {
+      session.value.currentStepIndex = prev
+    }
+  }
+
+  function resetAllSteps() {
+    if (!session.value) return
+    for (const step of session.value.steps) {
+      step.status = 'pending'
+      step.note = ''
+      step.timestamp = 0
+    }
+    session.value.currentStepIndex = 0
+    session.value.status = 'executing'
+  }
+
+  function finishExecution() {
+    if (!session.value) return
+    session.value.status = 'return-confirm'
+    session.value.finishedAt = Date.now()
+    addActivity('session-completed', session.value.checklistId, session.value.checklistName, session.value.id,
+      `离家清单"${session.value.checklistName}"执行完成，待回家确认`)
+  }
+
+  function submitReturnConfirm(confirmType: ReturnConfirmType, forgotItems: string[] = [], notes: string = '') {
+    if (!session.value) return
+    const now = Date.now()
+    const record: ReturnConfirmRecord = {
+      id: generateId(),
+      sessionId: session.value.id,
+      checklistId: session.value.checklistId,
+      checklistName: session.value.checklistName,
+      scene: session.value.scene,
+      confirmType,
+      forgotItems,
+      notes,
+      createdAt: now,
+    }
+    returnConfirms.value.unshift(record)
+    session.value.returnConfirmedAt = now
+    session.value.status = 'completed'
+
+    if (confirmType === 'forgot-items') {
+      for (const itemName of forgotItems) {
+        followUpStore.addItem({
+          title: `回家发现忘带"${itemName}"`,
+          description: `执行离家清单"${session.value.checklistName}"后回家确认发现忘带"${itemName}"。${notes ? '备注：' + notes : ''}`,
+          priority: 'medium',
+          checklistSource: {
+            checklistId: session.value.checklistId,
+            checklistName: session.value.checklistName,
+            sessionId: session.value.id,
+            itemId: '',
+            itemName,
+            stepIndex: -1,
+            linkedEmergencyItemId: null,
+            linkedEmergencyItemName: '',
+            linkedContactId: null,
+            linkedContactName: '',
+          },
+        })
+      }
+    }
+
+    if (confirmType === 'need-notes' && notes) {
+      followUpStore.addItem({
+        title: `离家清单补充说明需关注`,
+        description: `离家清单"${session.value.checklistName}"返回补充说明：${notes}`,
+        priority: 'low',
+        checklistSource: {
+          checklistId: session.value.checklistId,
+          checklistName: session.value.checklistName,
+          sessionId: session.value.id,
+          itemId: '',
+          itemName: '',
+          stepIndex: -1,
+          linkedEmergencyItemId: null,
+          linkedEmergencyItemName: '',
+          linkedContactId: null,
+          linkedContactName: '',
+        },
+      })
+    }
+
+    const confirmLabelMap: Record<ReturnConfirmType, string> = {
+      'safe-home': '已安全到家',
+      'forgot-items': `忘带物品（${forgotItems.join('、')}）`,
+      'need-notes': '需要补充说明',
+    }
+    addActivity('return-confirmed', session.value.checklistId, session.value.checklistName, session.value.id,
+      `回家确认：${confirmLabelMap[confirmType]}`)
+
+    history.value.unshift({ ...session.value })
+    if (history.value.length > 50) {
+      history.value = history.value.slice(0, 50)
+    }
+    session.value = null
+  }
+
+  function clearSession() {
+    session.value = null
+  }
+
+  function addActivity(action: ChecklistActivity['action'], checklistId: string, checklistName: string, sessionId: string | null, detail: string) {
+    activities.value.unshift({
+      id: generateId(),
+      action,
+      checklistId,
+      checklistName,
+      sessionId,
+      detail,
+      timestamp: Date.now(),
+    })
+    if (activities.value.length > 200) {
+      activities.value = activities.value.slice(0, 200)
+    }
+  }
+
+  const checklistStats = computed<ChecklistStatsData>(() => {
+    const checklistStore = useLeavingChecklistStore()
+    const sceneCounts: Record<LeavingChecklistScene, number> = {
+      'hospital-visit': 0, 'family-visit': 0, 'grocery': 0, 'community': 0, 'emergency-evac': 0,
+    }
+    const abnormalDist: Record<ChecklistStepStatus, number> = {
+      'pending': 0, 'done': 0, 'not-found': 0, 'skip': 0, 'need-help': 0,
+    }
+    const returnRatio: Record<ReturnConfirmType, number> = {
+      'safe-home': 0, 'forgot-items': 0, 'need-notes': 0,
+    }
+
+    const completedHistory = history.value.filter(h => h.status === 'completed')
+    for (const h of completedHistory) {
+      sceneCounts[h.scene]++
+      for (const step of h.steps) {
+        abnormalDist[step.status]++
+      }
+    }
+
+    for (const rc of returnConfirms.value) {
+      returnRatio[rc.confirmType]++
+    }
+
+    let highRiskTotal = 0
+    let highRiskDone = 0
+    for (const h of completedHistory) {
+      const keySteps = h.steps.filter(s => s.isKeyPoint)
+      highRiskTotal += keySteps.length
+      highRiskDone += keySteps.filter(s => s.status === 'done' || s.status === 'skip').length
+    }
+
+    return {
+      totalChecklists: checklistStore.checklists.length,
+      sceneExecutionCounts: sceneCounts,
+      abnormalStepDistribution: abnormalDist,
+      returnConfirmRatio: returnRatio,
+      totalReturnConfirms: returnConfirms.value.length,
+      highRiskStepCompletionRate: highRiskTotal > 0 ? Math.round((highRiskDone / highRiskTotal) * 100) : 0,
+      totalSessions: history.value.length,
+      completedSessions: completedHistory.length,
+    }
+  })
+
+  watch(session, (val) => saveToStorage(STORAGE_KEY_LEAVING_SESSION, val), { deep: true })
+  watch(history, (val) => saveToStorage(STORAGE_KEY_LEAVING_HISTORY, val), { deep: true })
+  watch(returnConfirms, (val) => saveToStorage(STORAGE_KEY_RETURN_CONFIRMS, val), { deep: true })
+  watch(activities, (val) => saveToStorage(STORAGE_KEY_CHECKLIST_ACTIVITIES, val), { deep: true })
+
+  return {
+    session,
+    history,
+    returnConfirms,
+    activities,
+    hasActiveSession,
+    remainingSteps,
+    keyPointSteps,
+    unconfirmedKeyPoints,
+    checklistStats,
+    startSession,
+    setStepStatus,
+    goToStep,
+    nextStep,
+    prevStep,
+    resetAllSteps,
+    finishExecution,
+    submitReturnConfirm,
+    clearSession,
+    addActivity,
   }
 })

@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useStatsStore } from '@/stores'
-import { GROUP_LABELS, GROUP_COLORS, EMERGENCY_ITEM_TYPE_LABELS, EMERGENCY_ITEM_TYPE_COLORS, FIND_FEEDBACK_LABELS, FIND_FEEDBACK_COLORS } from '@/types'
-import type { EmergencyItemType, FindFeedback } from '@/types'
+import { useStatsStore, useLeavingSessionStore } from '@/stores'
+import { GROUP_LABELS, GROUP_COLORS, EMERGENCY_ITEM_TYPE_LABELS, EMERGENCY_ITEM_TYPE_COLORS, FIND_FEEDBACK_LABELS, FIND_FEEDBACK_COLORS, LEAVING_SCENE_LABELS, LEAVING_SCENE_COLORS, CHECKLIST_STEP_STATUS_LABELS, CHECKLIST_STEP_STATUS_COLORS, RETURN_CONFIRM_LABELS, RETURN_CONFIRM_COLORS } from '@/types'
+import type { EmergencyItemType, FindFeedback, LeavingChecklistScene, ChecklistStepStatus, ReturnConfirmType } from '@/types'
 import {
   BarChart3, Users, Star, Package, Play, CheckCircle2, Clock,
-  TrendingUp, Award, Heart, Phone, UserPlus, MapPin, AlertTriangle, Shield
+  TrendingUp, Award, Heart, Phone, UserPlus, MapPin, AlertTriangle, Shield,
+  ClipboardList, LogOut, Home, AlertCircle, ListChecks, HelpCircle, ArrowLeftRight
 } from 'lucide-vue-next'
 
 const statsStore = useStatsStore()
+const leavingSessionStore = useLeavingSessionStore()
 
 const groupData = computed(() => {
   const entries = Object.entries(statsStore.stats.groupCounts) as [string, number][]
@@ -58,6 +60,48 @@ const feedbackData = computed(() => {
 
 const totalFeedback = computed(() => {
   return feedbackData.value.reduce((sum, d) => sum + d.count, 0)
+})
+
+const sceneExecutionData = computed(() => {
+  const entries = Object.entries(leavingSessionStore.checklistStats.sceneExecutionCounts) as [LeavingChecklistScene, number][]
+  return entries.map(([key, value]) => ({
+    key,
+    label: LEAVING_SCENE_LABELS[key],
+    color: LEAVING_SCENE_COLORS[key],
+    count: value,
+  })).filter(d => d.count > 0)
+})
+
+const maxSceneCount = computed(() => {
+  return Math.max(...sceneExecutionData.value.map(d => d.count), 1)
+})
+
+const abnormalStepData = computed(() => {
+  const entries = Object.entries(leavingSessionStore.checklistStats.abnormalStepDistribution) as [ChecklistStepStatus, number][]
+  return entries.map(([key, value]) => ({
+    key,
+    label: CHECKLIST_STEP_STATUS_LABELS[key],
+    color: CHECKLIST_STEP_STATUS_COLORS[key],
+    count: value,
+  }))
+})
+
+const totalAbnormalSteps = computed(() => {
+  return abnormalStepData.value.reduce((sum, d) => sum + d.count, 0)
+})
+
+const returnConfirmData = computed(() => {
+  const entries = Object.entries(leavingSessionStore.checklistStats.returnConfirmRatio) as [ReturnConfirmType, number][]
+  return entries.map(([key, value]) => ({
+    key,
+    label: RETURN_CONFIRM_LABELS[key],
+    color: RETURN_CONFIRM_COLORS[key],
+    count: value,
+  }))
+})
+
+const totalReturnConfirms = computed(() => {
+  return returnConfirmData.value.reduce((sum, d) => sum + d.count, 0)
 })
 </script>
 
@@ -128,6 +172,157 @@ const totalFeedback = computed(() => {
         </div>
         <p class="text-3xl font-bold text-warm-900">{{ statsStore.stats.totalDrills }}</p>
         <p class="text-sm text-warm-500 mt-1">演练次数</p>
+      </div>
+    </div>
+
+    <div class="rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 p-6 border-2 border-indigo-200">
+      <div class="flex items-start gap-4">
+        <div class="w-14 h-14 rounded-2xl bg-indigo-500 flex items-center justify-center shrink-0">
+          <ClipboardList class="h-7 w-7 text-white" />
+        </div>
+        <div class="flex-1">
+          <p class="text-lg font-bold text-warm-900">离家清单统计</p>
+          <p class="text-sm text-warm-600 mt-1">查看离家清单的使用情况和执行数据</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="rounded-2xl bg-white shadow-sm p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+            <ClipboardList class="h-5 w-5 text-indigo-600" />
+          </div>
+        </div>
+        <p class="text-3xl font-bold text-warm-900">{{ leavingSessionStore.checklistStats.totalChecklists }}</p>
+        <p class="text-sm text-warm-500 mt-1">清单数量</p>
+      </div>
+
+      <div class="rounded-2xl bg-white shadow-sm p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
+            <LogOut class="h-5 w-5 text-[#E8652B]" />
+          </div>
+        </div>
+        <p class="text-3xl font-bold text-warm-900">{{ leavingSessionStore.checklistStats.totalSessions }}</p>
+        <p class="text-sm text-warm-500 mt-1">离家次数</p>
+      </div>
+
+      <div class="rounded-2xl bg-white shadow-sm p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
+            <Home class="h-5 w-5 text-[#5C9460]" />
+          </div>
+        </div>
+        <p class="text-3xl font-bold text-warm-900">{{ leavingSessionStore.checklistStats.totalReturnConfirms }}</p>
+        <p class="text-sm text-warm-500 mt-1">回家确认次数</p>
+      </div>
+
+      <div class="rounded-2xl bg-white shadow-sm p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+            <Shield class="h-5 w-5 text-[#E8A838]" />
+          </div>
+        </div>
+        <p class="text-3xl font-bold text-warm-900">{{ leavingSessionStore.checklistStats.highRiskStepCompletionRate }}%</p>
+        <p class="text-sm text-warm-500 mt-1">高风险步骤完成率</p>
+      </div>
+    </div>
+
+    <div class="rounded-2xl bg-white shadow-sm p-5 space-y-4">
+      <h3 class="text-lg font-bold text-warm-800 flex items-center gap-2">
+        <ListChecks class="h-5 w-5 text-indigo-600" />
+        各场景执行次数分布
+      </h3>
+
+      <div v-if="sceneExecutionData.length === 0" class="text-center py-6">
+        <ClipboardList class="mx-auto mb-2 h-8 w-8 text-warm-300" />
+        <p class="text-warm-400">暂无离家执行数据</p>
+        <p class="text-sm text-warm-300 mt-1">使用离家清单后，执行次数会在这里展示</p>
+      </div>
+
+      <div v-else class="space-y-3">
+        <div
+          v-for="sceneItem in sceneExecutionData"
+          :key="sceneItem.key"
+          class="space-y-1.5"
+        >
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div
+                class="w-3 h-3 rounded-full"
+                :style="{ backgroundColor: sceneItem.color }"
+              />
+              <span class="text-sm font-medium text-warm-700">{{ sceneItem.label }}</span>
+            </div>
+            <span class="text-sm font-bold text-warm-600">{{ sceneItem.count }} 次</span>
+          </div>
+          <div class="w-full h-2 bg-warm-100 rounded-full overflow-hidden">
+            <div
+              class="h-full rounded-full transition-all duration-700"
+              :style="{
+                width: `${(sceneItem.count / maxSceneCount) * 100}%`,
+                backgroundColor: sceneItem.color,
+              }"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="rounded-2xl bg-white shadow-sm p-5 space-y-4">
+        <h3 class="text-lg font-bold text-warm-800 flex items-center gap-2">
+          <AlertCircle class="h-5 w-5 text-[#D94F4F]" />
+          异常步骤分布
+        </h3>
+
+        <div v-if="totalAbnormalSteps === 0" class="text-center py-6">
+          <HelpCircle class="mx-auto mb-2 h-8 w-8 text-warm-300" />
+          <p class="text-warm-400">暂无步骤执行数据</p>
+        </div>
+
+        <div v-else class="grid grid-cols-2 sm:grid-cols-2 gap-3">
+          <div
+            v-for="step in abnormalStepData"
+            :key="step.key"
+            class="rounded-xl p-4 text-center"
+            :style="{ backgroundColor: step.color + '10' }"
+          >
+            <p class="text-2xl font-bold" :style="{ color: step.color }">{{ step.count }}</p>
+            <p class="text-sm text-warm-600 mt-1">{{ step.label }}</p>
+            <p v-if="totalAbnormalSteps > 0" class="text-xs text-warm-400 mt-0.5">
+              {{ Math.round((step.count / totalAbnormalSteps) * 100) }}%
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl bg-white shadow-sm p-5 space-y-4">
+        <h3 class="text-lg font-bold text-warm-800 flex items-center gap-2">
+          <ArrowLeftRight class="h-5 w-5 text-[#5C9460]" />
+          返回确认比例
+        </h3>
+
+        <div v-if="totalReturnConfirms === 0" class="text-center py-6">
+          <Home class="mx-auto mb-2 h-8 w-8 text-warm-300" />
+          <p class="text-warm-400">暂无回家确认数据</p>
+        </div>
+
+        <div v-else class="grid grid-cols-3 gap-3">
+          <div
+            v-for="rc in returnConfirmData"
+            :key="rc.key"
+            class="rounded-xl p-4 text-center"
+            :style="{ backgroundColor: rc.color + '10' }"
+          >
+            <p class="text-2xl font-bold" :style="{ color: rc.color }">{{ rc.count }}</p>
+            <p class="text-sm text-warm-600 mt-1">{{ rc.label }}</p>
+            <p v-if="totalReturnConfirms > 0" class="text-xs text-warm-400 mt-0.5">
+              {{ Math.round((rc.count / totalReturnConfirms) * 100) }}%
+            </p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -475,7 +670,13 @@ const totalFeedback = computed(() => {
             <li v-if="statsStore.stats.highUrgencyCoverage < 50 && statsStore.stats.totalEmergencyItems > 0">
               🔍 高紧急物品覆盖率较低，建议确认这些物品的位置是否准确
             </li>
-            <li v-if="statsStore.stats.totalContacts >= 5 && statsStore.stats.emergencyContacts >= 3 && statsStore.stats.totalPackages >= 2 && statsStore.stats.totalEmergencyItems >= 5">
+            <li v-if="leavingSessionStore.checklistStats.highRiskStepCompletionRate < 80 && leavingSessionStore.checklistStats.totalSessions > 0">
+              📋 高风险步骤完成率较低，建议在离家时仔细核对关键步骤
+            </li>
+            <li v-if="leavingSessionStore.checklistStats.abnormalStepDistribution['not-found'] > 0 || leavingSessionStore.checklistStats.abnormalStepDistribution['need-help'] > 0">
+              ❓ 有 {{ leavingSessionStore.checklistStats.abnormalStepDistribution['not-found'] + leavingSessionStore.checklistStats.abnormalStepDistribution['need-help'] }} 次步骤出现问题，建议优化清单内容或确认物品位置
+            </li>
+            <li v-if="statsStore.stats.totalContacts >= 5 && statsStore.stats.emergencyContacts >= 3 && statsStore.stats.totalPackages >= 2 && statsStore.stats.totalEmergencyItems >= 5 && leavingSessionStore.checklistStats.totalChecklists >= 3">
               👍 您的数据已经很完整了，继续保持！
             </li>
           </ul>

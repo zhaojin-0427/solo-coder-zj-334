@@ -1,23 +1,28 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useContactStore, usePackageStore, useFollowUpStore, useDrillStore, useEmergencyStore } from '@/stores'
+import { useContactStore, usePackageStore, useFollowUpStore, useDrillStore, useEmergencyStore, useLeavingSessionStore, useLeavingChecklistStore } from '@/stores'
 import {
   Share2, Download, Upload, Copy, Check, Users, FileText,
-  AlertCircle, Smartphone, QrCode, Mail, MessageSquare, ChevronRight, MapPin, Clock, Plus, RefreshCw
+  AlertCircle, Smartphone, QrCode, Mail, MessageSquare, ChevronRight, MapPin, Clock, Plus, RefreshCw,
+  HeartPulse, ShoppingBag, Building2, Home, ListChecks, DoorOpen, CheckCircle2, XCircle
 } from 'lucide-vue-next'
+import type { ChecklistActivityAction } from '@/types'
 
 const contactStore = useContactStore()
 const packageStore = usePackageStore()
 const followUpStore = useFollowUpStore()
 const drillStore = useDrillStore()
 const emergencyStore = useEmergencyStore()
+const sessionStore = useLeavingSessionStore()
+const checklistStore = useLeavingChecklistStore()
 
 const copied = ref(false)
 const shareCode = ref('')
 const importData = ref('')
 const importError = ref('')
-const activeTab = ref<'export' | 'import' | 'activity'>('export')
+const activeTab = ref<'export' | 'import' | 'activity'>('activity')
 const exportType = ref<'all' | 'contacts' | 'packages'>('all')
+const activityFilter = ref<'all' | 'emergency' | 'leaving'>('all')
 
 function generateShareCode() {
   const data: Record<string, unknown> = {}
@@ -122,11 +127,39 @@ const dataSummary = computed(() => {
     followUps: followUpStore.items.length,
     drills: drillStore.history.length,
     emergencyItems: emergencyStore.items.length,
+    checklists: checklistStore.checklists.length,
+    leavingSessions: sessionStore.history.length,
+    returnConfirms: sessionStore.returnConfirms.length,
   }
 })
 
-const recentActivities = computed(() => {
-  return emergencyStore.activities.slice(0, 20)
+interface MergedActivity {
+  id: string
+  type: 'emergency' | 'leaving'
+  detail: string
+  timestamp: number
+  action: string
+}
+
+const recentActivities = computed<MergedActivity[]>(() => {
+  const emergencyActs: MergedActivity[] = emergencyStore.activities.map(a => ({
+    id: 'em-' + a.id,
+    type: 'emergency',
+    detail: a.detail,
+    timestamp: a.timestamp,
+    action: a.action,
+  }))
+  const leavingActs: MergedActivity[] = sessionStore.activities.map(a => ({
+    id: 'lv-' + a.id,
+    type: 'leaving',
+    detail: a.detail,
+    timestamp: a.timestamp,
+    action: a.action,
+  }))
+  let merged = [...emergencyActs, ...leavingActs]
+  if (activityFilter.value === 'emergency') merged = emergencyActs
+  if (activityFilter.value === 'leaving') merged = leavingActs
+  return merged.sort((a, b) => b.timestamp - a.timestamp).slice(0, 30)
 })
 
 function formatActivityTime(ts: number) {
@@ -138,7 +171,7 @@ function formatActivityTime(ts: number) {
   return new Date(ts).toLocaleDateString('zh-CN')
 }
 
-const ACTIVITY_ICONS: Record<string, typeof Plus> = {
+const EMERGENCY_ACTIVITY_ICONS: Record<string, typeof Plus> = {
   added: Plus,
   'location-changed': MapPin,
   feedback: MessageSquare,
@@ -146,12 +179,46 @@ const ACTIVITY_ICONS: Record<string, typeof Plus> = {
   reviewed: RefreshCw,
 }
 
-const ACTIVITY_COLORS: Record<string, string> = {
+const EMERGENCY_ACTIVITY_COLORS: Record<string, string> = {
   added: '#5C9460',
   'location-changed': '#5B9BD5',
   feedback: '#E8A838',
   expired: '#D94F4F',
   reviewed: '#7BAE7F',
+}
+
+const LEAVING_ACTIVITY_ICONS: Record<ChecklistActivityAction, typeof Plus> = {
+  'checklist-created': Plus,
+  'checklist-updated': RefreshCw,
+  'checklist-deleted': XCircle,
+  'session-started': DoorOpen,
+  'session-abnormal': AlertCircle,
+  'session-completed': CheckCircle2,
+  'return-confirmed': Home,
+}
+
+const LEAVING_ACTIVITY_COLORS: Record<ChecklistActivityAction, string> = {
+  'checklist-created': '#5C9460',
+  'checklist-updated': '#5B9BD5',
+  'checklist-deleted': '#8B7355',
+  'session-started': '#E8652B',
+  'session-abnormal': '#D94F4F',
+  'session-completed': '#7BAE7F',
+  'return-confirmed': '#E8A838',
+}
+
+function getActivityIcon(activity: MergedActivity) {
+  if (activity.type === 'emergency') {
+    return EMERGENCY_ACTIVITY_ICONS[activity.action] || Plus
+  }
+  return LEAVING_ACTIVITY_ICONS[activity.action as ChecklistActivityAction] || ListChecks
+}
+
+function getActivityColor(activity: MergedActivity) {
+  if (activity.type === 'emergency') {
+    return EMERGENCY_ACTIVITY_COLORS[activity.action] || '#8B7355'
+  }
+  return LEAVING_ACTIVITY_COLORS[activity.action as ChecklistActivityAction] || '#8B7355'
 }
 
 generateShareCode()
@@ -177,7 +244,7 @@ generateShareCode()
       </div>
     </div>
 
-    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
       <div class="rounded-2xl bg-white/70 p-4 text-center">
         <Users class="h-6 w-6 mx-auto mb-2 text-[#E8652B]" />
         <p class="text-2xl font-bold text-warm-900">{{ dataSummary.contacts }}</p>
@@ -202,6 +269,21 @@ generateShareCode()
         <Smartphone class="h-6 w-6 mx-auto mb-2 text-[#5B9BD5]" />
         <p class="text-2xl font-bold text-warm-900">{{ dataSummary.drills }}</p>
         <p class="text-sm text-warm-500">次演练</p>
+      </div>
+      <div class="rounded-2xl bg-white/70 p-4 text-center">
+        <ListChecks class="h-6 w-6 mx-auto mb-2 text-[#8B7355]" />
+        <p class="text-2xl font-bold text-warm-900">{{ dataSummary.checklists }}</p>
+        <p class="text-sm text-warm-500">份离家清单</p>
+      </div>
+      <div class="rounded-2xl bg-white/70 p-4 text-center">
+        <DoorOpen class="h-6 w-6 mx-auto mb-2 text-[#E8652B]" />
+        <p class="text-2xl font-bold text-warm-900">{{ dataSummary.leavingSessions }}</p>
+        <p class="text-sm text-warm-500">次离家</p>
+      </div>
+      <div class="rounded-2xl bg-white/70 p-4 text-center">
+        <Home class="h-6 w-6 mx-auto mb-2 text-[#7BAE7F]" />
+        <p class="text-2xl font-bold text-warm-900">{{ dataSummary.returnConfirms }}</p>
+        <p class="text-sm text-warm-500">次回家确认</p>
       </div>
     </div>
 
@@ -334,7 +416,7 @@ generateShareCode()
       </div>
     </div>
 
-    <div v-else class="space-y-5">
+    <div v-else-if="activeTab === 'import'" class="space-y-5">
       <div class="rounded-2xl bg-white shadow-sm p-5 space-y-4">
         <h3 class="text-lg font-bold text-warm-800">粘贴分享码</h3>
         <textarea
@@ -397,16 +479,48 @@ generateShareCode()
 
     <div v-if="activeTab === 'activity'" class="space-y-5">
       <div class="rounded-2xl bg-white shadow-sm p-5 space-y-4">
-        <h3 class="text-lg font-bold text-warm-800 flex items-center gap-2">
-          <Clock class="h-5 w-5 text-[#7BAE7F]" />
-          物品动态
-        </h3>
-        <p class="text-sm text-warm-500">查看应急物品的新增、位置变更和老人查找反馈等动态</p>
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-bold text-warm-800 flex items-center gap-2">
+            <Clock class="h-5 w-5 text-[#7BAE7F]" />
+            家庭动态
+          </h3>
+        </div>
+        <p class="text-sm text-warm-500">查看应急物品动态和离家清单动态，按时间倒序排列</p>
+
+        <div class="flex gap-2">
+          <button
+            @click="activityFilter = 'all'"
+            class="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+            :style="activityFilter === 'all'
+              ? { backgroundColor: '#7BAE7F', color: 'white' }
+              : { backgroundColor: '#FFF8F0', color: '#8B7355' }"
+          >
+            全部
+          </button>
+          <button
+            @click="activityFilter = 'leaving'"
+            class="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+            :style="activityFilter === 'leaving'
+              ? { backgroundColor: '#E8652B', color: 'white' }
+              : { backgroundColor: '#FFF8F0', color: '#8B7355' }"
+          >
+            离家
+          </button>
+          <button
+            @click="activityFilter = 'emergency'"
+            class="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+            :style="activityFilter === 'emergency'
+              ? { backgroundColor: '#5B9BD5', color: 'white' }
+              : { backgroundColor: '#FFF8F0', color: '#8B7355' }"
+          >
+            物品
+          </button>
+        </div>
 
         <div v-if="recentActivities.length === 0" class="rounded-xl bg-warm-50 p-8 text-center">
           <Clock class="mx-auto mb-3 h-10 w-10 text-warm-300" />
           <p class="text-warm-400">暂无动态</p>
-          <p class="text-sm text-warm-300 mt-1">物品变更和查找反馈会在这里显示</p>
+          <p class="text-sm text-warm-300 mt-1">物品变更和离家活动会在这里显示</p>
         </div>
 
         <div v-else class="space-y-3">
@@ -417,12 +531,12 @@ generateShareCode()
           >
             <div
               class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-              :style="{ backgroundColor: (ACTIVITY_COLORS[activity.action] || '#8B7355') + '20' }"
+              :style="{ backgroundColor: getActivityColor(activity) + '20' }"
             >
               <component
-                :is="ACTIVITY_ICONS[activity.action] || Plus"
+                :is="getActivityIcon(activity)"
                 class="h-4 w-4"
-                :style="{ color: ACTIVITY_COLORS[activity.action] || '#8B7355' }"
+                :style="{ color: getActivityColor(activity) }"
               />
             </div>
             <div class="flex-1 min-w-0">

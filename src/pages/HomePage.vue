@@ -15,17 +15,22 @@ import EmergencyItemList from '@/components/EmergencyItemList.vue'
 import EmergencyItemDetail from '@/components/EmergencyItemDetail.vue'
 import EmergencyItemEditor from '@/components/EmergencyItemEditor.vue'
 import ElderlyFindMode from '@/components/ElderlyFindMode.vue'
+import LeavingChecklistList from '@/components/LeavingChecklistList.vue'
+import LeavingChecklistEditor from '@/components/LeavingChecklistEditor.vue'
+import ElderlyLeavingMode from '@/components/ElderlyLeavingMode.vue'
+import ReturnConfirm from '@/components/ReturnConfirm.vue'
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   BookOpen, Layers, LayoutGrid, Printer, Zap, PhoneCall,
-  BookMarked, ClipboardList, Users, BarChart3, MapPin, Search
+  BookMarked, ClipboardList, Users, BarChart3, MapPin, Search,
+  DoorOpen, ListChecks
 } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
 
-type TabKey = 'input' | 'group' | 'layout' | 'print' | 'scenario' | 'drill' | 'packages' | 'emergency' | 'followups' | 'share' | 'stats'
+type TabKey = 'input' | 'group' | 'layout' | 'print' | 'scenario' | 'drill' | 'packages' | 'emergency' | 'leaving' | 'followups' | 'share' | 'stats'
 
 const activeTab = ref<TabKey>((route.query.tab as TabKey) || 'input')
 
@@ -34,6 +39,9 @@ const currentPackageId = ref('')
 
 const emergencyView = ref<'list' | 'detail' | 'edit' | 'elderly'>('list')
 const currentEmergencyItemId = ref('')
+
+const leavingView = ref<'list' | 'edit' | 'elderly' | 'return-confirm'>('list')
+const currentLeavingChecklistId = ref('')
 
 const tabs = [
   { key: 'input' as const, label: '联系人录入', icon: BookOpen },
@@ -44,6 +52,7 @@ const tabs = [
   { key: 'drill' as const, label: '应急演练', icon: PhoneCall },
   { key: 'packages' as const, label: '回听资料包', icon: BookMarked },
   { key: 'emergency' as const, label: '物品索引', icon: MapPin },
+  { key: 'leaving' as const, label: '离家清单', icon: DoorOpen },
   { key: 'followups' as const, label: '待跟进事项', icon: ClipboardList },
   { key: 'share' as const, label: '家庭共享', icon: Users },
   { key: 'stats' as const, label: '数据统计', icon: BarChart3 },
@@ -56,6 +65,9 @@ watch(activeTab, (val) => {
   }
   if (val === 'emergency') {
     emergencyView.value = 'list'
+  }
+  if (val === 'leaving') {
+    leavingView.value = 'list'
   }
 })
 
@@ -96,6 +108,31 @@ function handleBackEmergencyList() {
 function handleSavedEmergencyItem(id: string) {
   currentEmergencyItemId.value = id
   emergencyView.value = 'detail'
+}
+
+function handleEditLeavingChecklist(id: string) {
+  currentLeavingChecklistId.value = id
+  leavingView.value = 'edit'
+}
+
+function handleBackLeavingList() {
+  leavingView.value = 'list'
+}
+
+function handleGoElderlyLeavingMode() {
+  leavingView.value = 'elderly'
+}
+
+function handleGoReturnConfirm() {
+  leavingView.value = 'return-confirm'
+}
+
+function handleLeavingCompleted() {
+  leavingView.value = 'list'
+}
+
+function handleFromElderlyBackToElderly() {
+  leavingView.value = 'elderly'
 }
 </script>
 
@@ -241,6 +278,81 @@ function handleSavedEmergencyItem(id: string) {
           />
           <ElderlyFindMode
             v-else-if="emergencyView === 'elderly'"
+          />
+        </div>
+
+        <div class="lg:col-span-12" v-show="activeTab === 'leaving'">
+          <div class="flex items-center gap-2 mb-4" v-if="leavingView !== 'list'">
+            <button
+              @click="handleBackLeavingList"
+              class="flex items-center gap-1 text-sm text-warm-500 hover:text-[#E8652B] transition-colors"
+            >
+              ← 返回列表
+            </button>
+            <span class="text-warm-300">|</span>
+            <button
+              @click="handleGoElderlyLeavingMode"
+              class="flex items-center gap-1 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+              :style="leavingView === 'elderly'
+                ? { backgroundColor: '#E8652B', color: 'white' }
+                : { color: '#E8652B', backgroundColor: '#FFF8F0' }"
+            >
+              <DoorOpen class="h-4 w-4" />
+              出门模式
+            </button>
+            <span class="text-warm-300">|</span>
+            <button
+              @click="handleGoReturnConfirm"
+              class="flex items-center gap-1 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+              :style="leavingView === 'return-confirm'
+                ? { backgroundColor: '#E8652B', color: 'white' }
+                : { color: '#E8652B', backgroundColor: '#FFF8F0' }"
+            >
+              <ListChecks class="h-4 w-4" />
+              回家确认
+            </button>
+          </div>
+          <div v-if="leavingView === 'list'" class="space-y-4">
+            <div class="flex items-center gap-2">
+              <button
+                @click="handleGoElderlyLeavingMode"
+                class="flex items-center gap-2 rounded-xl px-4 py-2.5 text-base font-semibold text-white shadow-md transition-colors hover:bg-[#d45a24]"
+                style="background: #E8652B;"
+              >
+                <DoorOpen class="h-5 w-5" />
+                我要出门
+              </button>
+              <button
+                @click="handleGoReturnConfirm"
+                class="flex items-center gap-2 rounded-xl px-4 py-2.5 text-base font-semibold text-white shadow-md transition-colors hover:bg-[#d45a24]"
+                style="background: #4A8C5C;"
+              >
+                <ListChecks class="h-5 w-5" />
+                我回家了
+              </button>
+              <span class="text-sm text-warm-400">老人大字版离家检查清单</span>
+            </div>
+            <LeavingChecklistList
+              @edit="handleEditLeavingChecklist"
+            />
+          </div>
+          <LeavingChecklistEditor
+            v-else-if="leavingView === 'edit'"
+            :checklist-id="currentLeavingChecklistId"
+            @back="handleBackLeavingList"
+            @saved="handleBackLeavingList"
+          />
+          <ElderlyLeavingMode
+            v-else-if="leavingView === 'elderly'"
+            @completed="handleLeavingCompleted"
+            @back="handleBackLeavingList"
+            @go-return-confirm="handleGoReturnConfirm"
+          />
+          <ReturnConfirm
+            v-else-if="leavingView === 'return-confirm'"
+            @completed="handleLeavingCompleted"
+            @back="handleBackLeavingList"
+            @go-elderly="handleFromElderlyBackToElderly"
           />
         </div>
 
