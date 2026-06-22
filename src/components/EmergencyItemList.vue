@@ -86,7 +86,15 @@ const sortedItems = computed(() => {
   return items
 })
 
+function isExpired(item: { expiryDate: number | null; checkDate: number | null }): boolean {
+  const now = Date.now()
+  if (item.expiryDate && item.expiryDate < now) return true
+  if (item.checkDate && item.checkDate < now) return true
+  return false
+}
+
 function isExpiringSoon(item: { expiryDate: number | null; checkDate: number | null }): boolean {
+  if (isExpired(item)) return false
   const now = Date.now()
   const threshold = 30 * 86400000
   if (item.expiryDate && item.expiryDate - now < threshold) return true
@@ -209,7 +217,15 @@ function handleDelete(id: string) {
                   </span>
 
                   <span
-                    v-if="isExpiringSoon(item)"
+                    v-if="isExpired(item)"
+                    class="inline-flex items-center gap-1 rounded-full bg-gray-800 px-2.5 py-0.5 text-xs font-semibold text-white"
+                  >
+                    <AlertCircle class="h-3 w-3" />
+                    已过期
+                  </span>
+
+                  <span
+                    v-else-if="isExpiringSoon(item)"
                     class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-600"
                   >
                     <Clock class="h-3 w-3" />

@@ -21,7 +21,7 @@ const shareCode = ref('')
 const importData = ref('')
 const importError = ref('')
 const activeTab = ref<'export' | 'import' | 'activity'>('activity')
-const exportType = ref<'all' | 'contacts' | 'packages'>('all')
+const exportType = ref<'all' | 'contacts' | 'packages' | 'emergency' | 'leaving'>('all')
 const activityFilter = ref<'all' | 'emergency' | 'leaving'>('all')
 
 function generateShareCode() {
@@ -32,6 +32,20 @@ function generateShareCode() {
   }
   if (exportType.value === 'all' || exportType.value === 'packages') {
     data.packages = packageStore.packages
+  }
+  if (exportType.value === 'all' || exportType.value === 'emergency') {
+    data.emergencyItems = emergencyStore.items
+    data.emergencyActivities = emergencyStore.activities
+  }
+  if (exportType.value === 'all' || exportType.value === 'leaving') {
+    data.checklists = checklistStore.checklists
+    data.leavingSessions = sessionStore.history
+    data.leavingActivities = sessionStore.activities
+    data.returnConfirms = sessionStore.returnConfirms
+  }
+  if (exportType.value === 'all') {
+    data.followUps = followUpStore.items
+    data.drills = drillStore.history
   }
 
   const jsonStr = JSON.stringify(data)
@@ -70,21 +84,70 @@ function importFromCode() {
   try {
     const jsonStr = decodeURIComponent(escape(atob(importData.value.trim())))
     const data = JSON.parse(jsonStr)
+    let importedCount = 0
 
     if (data.contacts && Array.isArray(data.contacts) && data.contacts.length > 0) {
       if (confirm(`确认导入 ${data.contacts.length} 位联系人吗？这将覆盖现有联系人数据。`)) {
         contactStore.contacts.splice(0, contactStore.contacts.length, ...data.contacts)
+        importedCount++
       }
     }
 
     if (data.packages && Array.isArray(data.packages) && data.packages.length > 0) {
       if (confirm(`确认导入 ${data.packages.length} 个资料包吗？这将覆盖现有资料包。`)) {
         packageStore.packages.splice(0, packageStore.packages.length, ...data.packages)
+        importedCount++
       }
     }
 
+    if (data.emergencyItems && Array.isArray(data.emergencyItems) && data.emergencyItems.length > 0) {
+      if (confirm(`确认导入 ${data.emergencyItems.length} 件应急物品吗？这将覆盖现有物品数据。`)) {
+        emergencyStore.items.splice(0, emergencyStore.items.length, ...data.emergencyItems)
+        importedCount++
+      }
+    }
+
+    if (data.emergencyActivities && Array.isArray(data.emergencyActivities) && data.emergencyActivities.length > 0) {
+      emergencyStore.activities.splice(0, emergencyStore.activities.length, ...data.emergencyActivities)
+      importedCount++
+    }
+
+    if (data.checklists && Array.isArray(data.checklists) && data.checklists.length > 0) {
+      if (confirm(`确认导入 ${data.checklists.length} 份离家清单吗？这将覆盖现有清单数据。`)) {
+        checklistStore.checklists.splice(0, checklistStore.checklists.length, ...data.checklists)
+        importedCount++
+      }
+    }
+
+    if (data.leavingSessions && Array.isArray(data.leavingSessions) && data.leavingSessions.length > 0) {
+      sessionStore.history.splice(0, sessionStore.history.length, ...data.leavingSessions)
+      importedCount++
+    }
+
+    if (data.leavingActivities && Array.isArray(data.leavingActivities) && data.leavingActivities.length > 0) {
+      sessionStore.activities.splice(0, sessionStore.activities.length, ...data.leavingActivities)
+      importedCount++
+    }
+
+    if (data.returnConfirms && Array.isArray(data.returnConfirms) && data.returnConfirms.length > 0) {
+      sessionStore.returnConfirms.splice(0, sessionStore.returnConfirms.length, ...data.returnConfirms)
+      importedCount++
+    }
+
+    if (data.followUps && Array.isArray(data.followUps) && data.followUps.length > 0) {
+      if (confirm(`确认导入 ${data.followUps.length} 项待跟进事项吗？这将覆盖现有待办数据。`)) {
+        followUpStore.items.splice(0, followUpStore.items.length, ...data.followUps)
+        importedCount++
+      }
+    }
+
+    if (data.drills && Array.isArray(data.drills) && data.drills.length > 0) {
+      drillStore.history.splice(0, drillStore.history.length, ...data.drills)
+      importedCount++
+    }
+
     importData.value = ''
-    alert('导入成功！')
+    alert(`导入成功！已导入 ${importedCount} 类数据。`)
   } catch {
     importError.value = '分享码格式错误，请检查后重试'
   }
@@ -326,9 +389,11 @@ generateShareCode()
         <div class="space-y-2">
           <label
             v-for="opt in [
-              { value: 'all', label: '全部数据', desc: '联系人 + 资料包 + 待办事项' },
+              { value: 'all', label: '全部数据', desc: '联系人 + 资料包 + 应急物品 + 离家清单 + 待办 + 演练' },
               { value: 'contacts', label: '仅联系人', desc: '只分享联系人信息' },
               { value: 'packages', label: '仅资料包', desc: '只分享回听资料包' },
+              { value: 'emergency', label: '仅应急物品', desc: '应急物品 + 物品动态' },
+              { value: 'leaving', label: '仅离家清单', desc: '离家清单 + 会话记录 + 动态' },
             ]"
             :key="opt.value"
             class="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors"
