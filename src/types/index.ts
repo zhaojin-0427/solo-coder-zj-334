@@ -596,6 +596,7 @@ export interface ChecklistFollowUpSource {
 declare module '@/types' {
   interface FollowUpItem {
     checklistSource?: ChecklistFollowUpSource | null
+    nightCareSource?: NightFollowUpSource | null
   }
 }
 
@@ -608,4 +609,151 @@ export interface ChecklistStatsData {
   highRiskStepCompletionRate: number
   totalSessions: number
   completedSessions: number
+}
+
+export interface NightCheckItem {
+  id: string
+  name: string
+  description: string
+  order: number
+  isKeyPoint: boolean
+  reminder: string
+  stepNote: string
+  linkedEmergencyItemId: string | null
+  linkedEmergencyItemName: string
+  linkedContactId: string | null
+  linkedContactName: string
+}
+
+export interface NightCarePlan {
+  id: string
+  name: string
+  icon: string
+  startTime: string
+  endTime: string
+  checkItems: NightCheckItem[]
+  linkedContactIds: string[]
+  linkedContactNames: string
+  linkedEmergencyItemIds: string[]
+  linkedEmergencyItemNames: string
+  keyRisks: string
+  reminderText: string
+  needsRepeatReminder: boolean
+  abnormalHandlingAdvice: string
+  order: number
+  isHighlighted: boolean
+  createdAt: number
+  updatedAt: number
+}
+
+export const NIGHT_CARE_DEFAULT_PLANS = [
+  { id: 'bedtime-check', name: '睡前检查', icon: 'moon', startTime: '21:00', endTime: '22:00', description: '睡前巡查确认安全' },
+  { id: 'midnight-check', name: '半夜起身', icon: 'lamp', startTime: '02:00', endTime: '03:00', description: '起夜时的安全确认' },
+  { id: 'medicine-reminder', name: '服药提醒', icon: 'pill', startTime: '21:30', endTime: '22:00', description: '夜间服药时间提醒' },
+  { id: 'safety-confirm', name: '门窗燃气确认', icon: 'shield-check', startTime: '22:00', endTime: '22:30', description: '确认门窗燃气关闭' },
+  { id: 'morning-visit', name: '清晨回访', icon: 'sunrise', startTime: '06:00', endTime: '07:00', description: '清晨确认老人状况' },
+]
+
+export const NIGHT_CARE_PLAN_COLORS: Record<string, string> = {
+  'bedtime-check': '#7B68EE',
+  'midnight-check': '#E8A838',
+  'medicine-reminder': '#D94F4F',
+  'safety-confirm': '#5C9460',
+  'morning-visit': '#E8652B',
+}
+
+export type NightCareFeedback = 'confirmed' | 'remind-later' | 'not-clear' | 'need-family'
+
+export const NIGHT_CARE_FEEDBACK_LABELS: Record<NightCareFeedback, string> = {
+  'confirmed': '已确认',
+  'remind-later': '稍后提醒',
+  'not-clear': '没看清',
+  'need-family': '需要家人处理',
+}
+
+export const NIGHT_CARE_FEEDBACK_COLORS: Record<NightCareFeedback, string> = {
+  'confirmed': '#5C9460',
+  'remind-later': '#E8A838',
+  'not-clear': '#B8A08A',
+  'need-family': '#5B9BD5',
+}
+
+export interface NightExecutingStep {
+  itemId: string
+  itemName: string
+  status: NightCareFeedback
+  note: string
+  linkedEmergencyItemId: string | null
+  linkedEmergencyItemName: string
+  linkedContactId: string | null
+  linkedContactName: string
+  isKeyPoint: boolean
+  timestamp: number
+}
+
+export type NightCareSessionStatus = 'selecting' | 'executing' | 'checking' | 'completed'
+
+export interface NightCareSession {
+  id: string
+  planId: string
+  planName: string
+  status: NightCareSessionStatus
+  steps: NightExecutingStep[]
+  currentStepIndex: number
+  startedAt: number
+  finishedAt: number | null
+}
+
+export interface NightCareHistory {
+  id: string
+  planId: string
+  planName: string
+  steps: NightExecutingStep[]
+  startedAt: number
+  finishedAt: number
+  summary: string
+  abnormalCount: number
+}
+
+export type NightCareActivityAction =
+  | 'plan-created'
+  | 'plan-updated'
+  | 'plan-deleted'
+  | 'session-started'
+  | 'session-abnormal'
+  | 'session-completed'
+
+export interface NightCareActivity {
+  id: string
+  action: NightCareActivityAction
+  planId: string
+  planName: string
+  sessionId: string | null
+  detail: string
+  timestamp: number
+}
+
+export interface NightFollowUpSource {
+  planId: string
+  planName: string
+  sessionId: string
+  itemId: string
+  itemName: string
+  stepIndex: number
+  linkedEmergencyItemId: string | null
+  linkedEmergencyItemName: string
+  linkedContactId: string | null
+  linkedContactName: string
+}
+
+export interface NightCareStatsData {
+  totalPlans: number
+  highlightedPlans: number
+  totalSessions: number
+  completedSessions: number
+  abnormalStepDistribution: Record<NightCareFeedback, number>
+  keyPointCompletionRate: number
+  planExecutionCounts: Record<string, number>
+  totalAbnormal: number
+  familyHandlingCount: number
 }

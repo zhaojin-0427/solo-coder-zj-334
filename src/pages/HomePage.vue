@@ -19,18 +19,23 @@ import LeavingChecklistList from '@/components/LeavingChecklistList.vue'
 import LeavingChecklistEditor from '@/components/LeavingChecklistEditor.vue'
 import ElderlyLeavingMode from '@/components/ElderlyLeavingMode.vue'
 import ReturnConfirm from '@/components/ReturnConfirm.vue'
+import NightCarePlanList from '@/components/NightCarePlanList.vue'
+import NightCarePlanEditor from '@/components/NightCarePlanEditor.vue'
+import ElderlyNightCareMode from '@/components/ElderlyNightCareMode.vue'
+import NightCareTimeline from '@/components/NightCareTimeline.vue'
+import NightCareStats from '@/components/NightCareStats.vue'
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   BookOpen, Layers, LayoutGrid, Printer, Zap, PhoneCall,
   BookMarked, ClipboardList, Users, BarChart3, MapPin, Search,
-  DoorOpen, ListChecks
+  DoorOpen, ListChecks, Moon, Clock, History
 } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
 
-type TabKey = 'input' | 'group' | 'layout' | 'print' | 'scenario' | 'drill' | 'packages' | 'emergency' | 'leaving' | 'followups' | 'share' | 'stats'
+type TabKey = 'input' | 'group' | 'layout' | 'print' | 'scenario' | 'drill' | 'packages' | 'emergency' | 'leaving' | 'nightcare' | 'followups' | 'share' | 'stats'
 
 const activeTab = ref<TabKey>((route.query.tab as TabKey) || 'input')
 
@@ -43,6 +48,9 @@ const currentEmergencyItemId = ref('')
 const leavingView = ref<'list' | 'edit' | 'elderly' | 'return-confirm'>('list')
 const currentLeavingChecklistId = ref('')
 
+const nightCareView = ref<'list' | 'edit' | 'elderly' | 'timeline' | 'stats'>('list')
+const currentNightCarePlanId = ref('')
+
 const tabs = [
   { key: 'input' as const, label: '联系人录入', icon: BookOpen },
   { key: 'group' as const, label: '分组排序', icon: Layers },
@@ -53,6 +61,7 @@ const tabs = [
   { key: 'packages' as const, label: '回听资料包', icon: BookMarked },
   { key: 'emergency' as const, label: '物品索引', icon: MapPin },
   { key: 'leaving' as const, label: '离家清单', icon: DoorOpen },
+  { key: 'nightcare' as const, label: '夜间照护', icon: Moon },
   { key: 'followups' as const, label: '待跟进事项', icon: ClipboardList },
   { key: 'share' as const, label: '家庭共享', icon: Users },
   { key: 'stats' as const, label: '数据统计', icon: BarChart3 },
@@ -68,6 +77,9 @@ watch(activeTab, (val) => {
   }
   if (val === 'leaving') {
     leavingView.value = 'list'
+  }
+  if (val === 'nightcare') {
+    nightCareView.value = 'list'
   }
 })
 
@@ -133,6 +145,31 @@ function handleLeavingCompleted() {
 
 function handleFromElderlyBackToElderly() {
   leavingView.value = 'elderly'
+}
+
+function handleEditNightCarePlan(id: string) {
+  currentNightCarePlanId.value = id
+  nightCareView.value = 'edit'
+}
+
+function handleBackNightCareList() {
+  nightCareView.value = 'list'
+}
+
+function handleGoElderlyNightCareMode() {
+  nightCareView.value = 'elderly'
+}
+
+function handleGoNightCareTimeline() {
+  nightCareView.value = 'timeline'
+}
+
+function handleGoNightCareStats() {
+  nightCareView.value = 'stats'
+}
+
+function handleNightCareCompleted() {
+  nightCareView.value = 'list'
 }
 </script>
 
@@ -353,6 +390,100 @@ function handleFromElderlyBackToElderly() {
             @completed="handleLeavingCompleted"
             @back="handleBackLeavingList"
             @go-elderly="handleFromElderlyBackToElderly"
+          />
+        </div>
+
+        <div class="lg:col-span-12" v-show="activeTab === 'nightcare'">
+          <div class="flex items-center gap-2 mb-4" v-if="nightCareView !== 'list'">
+            <button
+              @click="handleBackNightCareList"
+              class="flex items-center gap-1 text-sm text-warm-500 hover:text-[#E8652B] transition-colors"
+            >
+              ← 返回列表
+            </button>
+            <span class="text-warm-300">|</span>
+            <button
+              @click="handleGoElderlyNightCareMode"
+              class="flex items-center gap-1 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+              :style="nightCareView === 'elderly'
+                ? { backgroundColor: '#7B68EE', color: 'white' }
+                : { color: '#7B68EE', backgroundColor: '#FFF8F0' }"
+            >
+              <Moon class="h-4 w-4" />
+              今晚照护
+            </button>
+            <span class="text-warm-300">|</span>
+            <button
+              @click="handleGoNightCareTimeline"
+              class="flex items-center gap-1 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+              :style="nightCareView === 'timeline'
+                ? { backgroundColor: '#5B9BD5', color: 'white' }
+                : { color: '#5B9BD5', backgroundColor: '#FFF8F0' }"
+            >
+              <History class="h-4 w-4" />
+              巡查时间线
+            </button>
+            <span class="text-warm-300">|</span>
+            <button
+              @click="handleGoNightCareStats"
+              class="flex items-center gap-1 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+              :style="nightCareView === 'stats'
+                ? { backgroundColor: '#E8652B', color: 'white' }
+                : { color: '#E8652B', backgroundColor: '#FFF8F0' }"
+            >
+              <BarChart3 class="h-4 w-4" />
+              数据统计
+            </button>
+          </div>
+          <div v-if="nightCareView === 'list'" class="space-y-4">
+            <div class="flex items-center gap-2 flex-wrap">
+              <button
+                @click="handleGoElderlyNightCareMode"
+                class="flex items-center gap-2 rounded-xl px-4 py-2.5 text-base font-semibold text-white shadow-md transition-colors hover:bg-[#6a5acd]"
+                style="background: #7B68EE;"
+              >
+                <Moon class="h-5 w-5" />
+                今晚照护
+              </button>
+              <button
+                @click="handleGoNightCareTimeline"
+                class="flex items-center gap-2 rounded-xl px-4 py-2.5 text-base font-semibold text-white shadow-md transition-colors hover:bg-[#4a8bc5]"
+                style="background: #5B9BD5;"
+              >
+                <History class="h-5 w-5" />
+                巡查记录
+              </button>
+              <button
+                @click="handleGoNightCareStats"
+                class="flex items-center gap-2 rounded-xl px-4 py-2.5 text-base font-semibold text-white shadow-md transition-colors hover:bg-[#d45a24]"
+                style="background: #E8652B;"
+              >
+                <BarChart3 class="h-5 w-5" />
+                数据统计
+              </button>
+              <span class="text-sm text-warm-400">家属配置夜间照护计划，老人使用大字版确认</span>
+            </div>
+            <NightCarePlanList
+              @edit="handleEditNightCarePlan"
+              @elderly="handleGoElderlyNightCareMode"
+            />
+          </div>
+          <NightCarePlanEditor
+            v-else-if="nightCareView === 'edit'"
+            :plan-id="currentNightCarePlanId"
+            @back="handleBackNightCareList"
+            @elderly="handleGoElderlyNightCareMode"
+          />
+          <ElderlyNightCareMode
+            v-else-if="nightCareView === 'elderly'"
+            @back="handleBackNightCareList"
+            @timeline="handleGoNightCareTimeline"
+          />
+          <NightCareTimeline
+            v-else-if="nightCareView === 'timeline'"
+          />
+          <NightCareStats
+            v-else-if="nightCareView === 'stats'"
           />
         </div>
 

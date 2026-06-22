@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
-import type { Contact, ContactGroup, LayoutConfig, CardFormat, FontSize, DrillSession, DrillHistoryRecord, DrillContactAttempt, ContactResult, ListeningPackage, PackageContact, FollowUpItem, FollowUpPriority, FollowUpStatus, StatsData, EmergencyItem, EmergencyItemType, EmergencyUrgency, FindFeedback, EmergencyItemActivity, LeavingChecklist, LeavingChecklistScene, ChecklistItem, ChecklistItemCategory, LeavingSession, LeavingSessionStatus, ExecutingStep, ChecklistStepStatus, ReturnConfirmRecord, ReturnConfirmType, ChecklistActivity, ChecklistStatsData, ChecklistFollowUpSource } from '@/types'
-import { generateId, GROUP_LABELS, GROUP_COLORS, CONTACT_RESULT_LABELS, DRILL_MODES, PACKAGE_DEFAULT_GUIDE_TEXTS, FOLLOW_UP_PRIORITY_LABELS, FOLLOW_UP_STATUS_LABELS, EMERGENCY_ITEM_TYPE_LABELS, EMERGENCY_ITEM_TYPE_COLORS, FIND_FEEDBACK_LABELS, LEAVING_SCENES, LEAVING_SCENE_LABELS, CHECKLIST_ITEM_CATEGORY_LABELS } from '@/types'
+import type { Contact, ContactGroup, LayoutConfig, CardFormat, FontSize, DrillSession, DrillHistoryRecord, DrillContactAttempt, ContactResult, ListeningPackage, PackageContact, FollowUpItem, FollowUpPriority, FollowUpStatus, StatsData, EmergencyItem, EmergencyItemType, EmergencyUrgency, FindFeedback, EmergencyItemActivity, LeavingChecklist, LeavingChecklistScene, ChecklistItem, ChecklistItemCategory, LeavingSession, LeavingSessionStatus, ExecutingStep, ChecklistStepStatus, ReturnConfirmRecord, ReturnConfirmType, ChecklistActivity, ChecklistStatsData, ChecklistFollowUpSource, NightCheckItem, NightCarePlan, NightCareFeedback, NightExecutingStep, NightCareSession, NightCareSessionStatus, NightCareHistory, NightCareActivity, NightCareActivityAction, NightFollowUpSource, NightCareStatsData } from '@/types'
+import { generateId, GROUP_LABELS, GROUP_COLORS, CONTACT_RESULT_LABELS, DRILL_MODES, PACKAGE_DEFAULT_GUIDE_TEXTS, FOLLOW_UP_PRIORITY_LABELS, FOLLOW_UP_STATUS_LABELS, EMERGENCY_ITEM_TYPE_LABELS, EMERGENCY_ITEM_TYPE_COLORS, FIND_FEEDBACK_LABELS, LEAVING_SCENES, LEAVING_SCENE_LABELS, CHECKLIST_ITEM_CATEGORY_LABELS, NIGHT_CARE_DEFAULT_PLANS, NIGHT_CARE_FEEDBACK_LABELS } from '@/types'
 
 const STORAGE_KEY_CONTACTS = 'phonebook-contacts'
 const STORAGE_KEY_LAYOUT = 'phonebook-layout'
@@ -1651,6 +1651,550 @@ export const useLeavingSessionStore = defineStore('leavingSession', () => {
     resetAllSteps,
     finishExecution,
     submitReturnConfirm,
+    clearSession,
+    addActivity,
+  }
+})
+
+const STORAGE_KEY_NIGHT_CARE_PLANS = 'phonebook-night-care-plans'
+const STORAGE_KEY_NIGHT_CARE_SESSION = 'phonebook-night-care-session'
+const STORAGE_KEY_NIGHT_CARE_HISTORY = 'phonebook-night-care-history'
+const STORAGE_KEY_NIGHT_CARE_ACTIVITIES = 'phonebook-night-care-activities'
+
+function buildDefaultNightCheckItems(planId: string): NightCheckItem[] {
+  const templates: Record<string, { name: string; isKeyPoint: boolean; reminder: string }[]> = {
+    'bedtime-check': [
+      { name: '门窗已锁好', isKeyPoint: true, reminder: '确认所有外门和窗户都已锁好' },
+      { name: '燃气已关闭', isKeyPoint: true, reminder: '厨房燃气总阀门已关闭' },
+      { name: '电器已断电', isKeyPoint: false, reminder: '除冰箱外的电器已断电' },
+      { name: '常用药放在床头', isKeyPoint: true, reminder: '夜间需要的药物放在伸手可及的位置' },
+      { name: '水杯已备好', isKeyPoint: false, reminder: '床头放一杯温水' },
+      { name: '夜灯已打开', isKeyPoint: false, reminder: '走廊和卫生间的小夜灯已打开' },
+      { name: '紧急联系卡在手边', isKeyPoint: true, reminder: '紧急联系卡放在床头柜上' },
+      { name: '手机已充电', isKeyPoint: false, reminder: '手机放在床头并已充电' },
+    ],
+    'midnight-check': [
+      { name: '床头灯可以正常打开', isKeyPoint: true, reminder: '起夜时先开灯' },
+      { name: '地面没有障碍物', isKeyPoint: true, reminder: '确认通道上没有杂物' },
+      { name: '卫生间防滑垫到位', isKeyPoint: false, reminder: '卫生间门口防滑垫已铺好' },
+      { name: '扶手可以抓稳', isKeyPoint: false, reminder: '卫生间和走廊的扶手牢固' },
+      { name: '紧急呼叫按钮在手边', isKeyPoint: true, reminder: '紧急呼叫器或手机在身边' },
+    ],
+    'medicine-reminder': [
+      { name: '睡前药物已服用', isKeyPoint: true, reminder: '按医嘱服用睡前药物' },
+      { name: '明早药物已准备好', isKeyPoint: false, reminder: '把明天早上的药提前分好' },
+      { name: '药盒放在显眼位置', isKeyPoint: false, reminder: '药盒在床头柜上' },
+      { name: '饮水已准备好', isKeyPoint: false, reminder: '服药需要的温水已备好' },
+    ],
+    'safety-confirm': [
+      { name: '入户门已反锁', isKeyPoint: true, reminder: '大门已用钥匙反锁' },
+      { name: '阳台门已关闭', isKeyPoint: false, reminder: '阳台门窗全部关闭' },
+      { name: '厨房燃气总阀关闭', isKeyPoint: true, reminder: '燃气总阀门顺时针拧紧' },
+      { name: '燃气灶开关在关闭位置', isKeyPoint: true, reminder: '所有灶眼旋钮指向关闭' },
+      { name: '电热水器已断电', isKeyPoint: false, reminder: '睡前可以关掉电热水器' },
+      { name: '空调温度适宜', isKeyPoint: false, reminder: '空调温度设置合适并定时' },
+      { name: '窗帘已拉好', isKeyPoint: false, reminder: '卧室和客厅窗帘已拉上' },
+    ],
+    'morning-visit': [
+      { name: '老人已起床', isKeyPoint: true, reminder: '确认老人已安全起床' },
+      { name: '夜间没有不适', isKeyPoint: true, reminder: '询问夜间睡眠和身体状况' },
+      { name: '血压/血糖已测量', isKeyPoint: false, reminder: '有需要的话测量生命体征' },
+      { name: '早餐已准备', isKeyPoint: false, reminder: '确认早餐安排妥当' },
+      { name: '今天的药物已准备好', isKeyPoint: true, reminder: '白天的药物已分好' },
+      { name: '室内温度适宜', isKeyPoint: false, reminder: '室内温度和通风良好' },
+    ],
+  }
+  const template = templates[planId] || []
+  return template.map((t, i) => ({
+    id: generateId(),
+    name: t.name,
+    description: '',
+    order: i,
+    isKeyPoint: t.isKeyPoint,
+    reminder: t.reminder,
+    stepNote: '',
+    linkedEmergencyItemId: null,
+    linkedEmergencyItemName: '',
+    linkedContactId: null,
+    linkedContactName: '',
+  }))
+}
+
+const DEFAULT_NIGHT_CARE_PLANS: NightCarePlan[] = NIGHT_CARE_DEFAULT_PLANS.map((p, idx) => ({
+  id: 'ncp-' + p.id,
+  name: p.name,
+  icon: p.icon,
+  startTime: p.startTime,
+  endTime: p.endTime,
+  checkItems: buildDefaultNightCheckItems(p.id),
+  linkedContactIds: ['c1', 'c2'],
+  linkedContactNames: '张小明（儿子）、李小红（女儿）',
+  linkedEmergencyItemIds: [],
+  linkedEmergencyItemNames: '',
+  keyRisks: p.id === 'bedtime-check' ? '跌倒风险、夜间突发疾病'
+    : p.id === 'midnight-check' ? '跌倒、找不到紧急呼叫器'
+    : p.id === 'medicine-reminder' ? '漏服药物、错服药物'
+    : p.id === 'safety-confirm' ? '燃气泄漏、火灾、盗窃'
+    : '未起床、身体不适',
+  reminderText: '按照清单逐项确认，有任何问题随时联系家人。',
+  needsRepeatReminder: p.id === 'medicine-reminder',
+  abnormalHandlingAdvice: '如发现异常，立即拨打紧急联系电话；如身体不适，拨打120或联系家人。',
+  order: idx,
+  isHighlighted: p.id === 'bedtime-check' || p.id === 'medicine-reminder',
+  createdAt: Date.now() - 86400000 * (idx + 1),
+  updatedAt: Date.now() - 86400000 * idx,
+}))
+
+export const useNightCarePlanStore = defineStore('nightCarePlan', () => {
+  const plans = ref<NightCarePlan[]>(
+    loadFromStorage<NightCarePlan[]>(STORAGE_KEY_NIGHT_CARE_PLANS, DEFAULT_NIGHT_CARE_PLANS)
+  )
+
+  const nightSessionStore = useNightCareSessionStore()
+
+  const sortedPlans = computed(() =>
+    [...plans.value].sort((a, b) => {
+      if (a.isHighlighted !== b.isHighlighted) return a.isHighlighted ? -1 : 1
+      return a.order - b.order
+    })
+  )
+
+  function getPlanById(id: string): NightCarePlan | undefined {
+    return plans.value.find(p => p.id === id)
+  }
+
+  function createPlan(data: Partial<NightCarePlan> = {}) {
+    const now = Date.now()
+    const newPlan: NightCarePlan = {
+      id: generateId(),
+      name: data.name || '新夜间照护计划',
+      icon: data.icon || 'moon',
+      startTime: data.startTime || '21:00',
+      endTime: data.endTime || '22:00',
+      checkItems: data.checkItems && data.checkItems.length > 0 ? data.checkItems : [],
+      linkedContactIds: data.linkedContactIds || [],
+      linkedContactNames: data.linkedContactNames || '',
+      linkedEmergencyItemIds: data.linkedEmergencyItemIds || [],
+      linkedEmergencyItemNames: data.linkedEmergencyItemNames || '',
+      keyRisks: data.keyRisks || '',
+      reminderText: data.reminderText || '按照清单逐项确认，有任何问题随时联系家人。',
+      needsRepeatReminder: data.needsRepeatReminder ?? false,
+      abnormalHandlingAdvice: data.abnormalHandlingAdvice || '',
+      order: plans.value.length,
+      isHighlighted: data.isHighlighted || false,
+      createdAt: now,
+      updatedAt: now,
+    }
+    plans.value.push(newPlan)
+    nightSessionStore.addActivity('plan-created', newPlan.id, newPlan.name, null, `创建了夜间照护计划"${newPlan.name}"`)
+    return newPlan
+  }
+
+  function updatePlan(id: string, data: Partial<NightCarePlan>) {
+    const idx = plans.value.findIndex(p => p.id === id)
+    if (idx !== -1) {
+      const old = plans.value[idx]
+      plans.value[idx] = { ...plans.value[idx], ...data, updatedAt: Date.now() }
+      nightSessionStore.addActivity('plan-updated', id, old.name, null, `更新了夜间照护计划"${old.name}"`)
+    }
+  }
+
+  function deletePlan(id: string) {
+    const plan = plans.value.find(p => p.id === id)
+    plans.value = plans.value.filter(p => p.id !== id)
+    plans.value.forEach((p, i) => { p.order = i })
+    if (plan) {
+      nightSessionStore.addActivity('plan-deleted', id, plan.name, null, `删除了夜间照护计划"${plan.name}"`)
+    }
+  }
+
+  function toggleHighlight(id: string) {
+    const plan = plans.value.find(p => p.id === id)
+    if (plan) {
+      plan.isHighlighted = !plan.isHighlighted
+      plan.updatedAt = Date.now()
+    }
+  }
+
+  function addCheckItem(planId: string, data: Partial<NightCheckItem> & { name: string }) {
+    const plan = plans.value.find(p => p.id === planId)
+    if (!plan) return
+    const newItem: NightCheckItem = {
+      id: generateId(),
+      name: data.name,
+      description: data.description || '',
+      order: plan.checkItems.length,
+      isKeyPoint: data.isKeyPoint ?? false,
+      reminder: data.reminder || '',
+      stepNote: data.stepNote || '',
+      linkedEmergencyItemId: data.linkedEmergencyItemId ?? null,
+      linkedEmergencyItemName: data.linkedEmergencyItemName || '',
+      linkedContactId: data.linkedContactId ?? null,
+      linkedContactName: data.linkedContactName || '',
+    }
+    plan.checkItems.push(newItem)
+    plan.updatedAt = Date.now()
+    return newItem
+  }
+
+  function updateCheckItem(planId: string, itemId: string, data: Partial<NightCheckItem>) {
+    const plan = plans.value.find(p => p.id === planId)
+    if (!plan) return
+    const idx = plan.checkItems.findIndex(i => i.id === itemId)
+    if (idx !== -1) {
+      plan.checkItems[idx] = { ...plan.checkItems[idx], ...data }
+      plan.updatedAt = Date.now()
+    }
+  }
+
+  function removeCheckItem(planId: string, itemId: string) {
+    const plan = plans.value.find(p => p.id === planId)
+    if (!plan) return
+    plan.checkItems = plan.checkItems.filter(i => i.id !== itemId)
+    plan.checkItems.forEach((i, idx) => { i.order = idx })
+    plan.updatedAt = Date.now()
+  }
+
+  function reorderCheckItems(planId: string, fromIndex: number, toIndex: number) {
+    const plan = plans.value.find(p => p.id === planId)
+    if (!plan) return
+    const arr = [...plan.checkItems].sort((a, b) => a.order - b.order)
+    const [moved] = arr.splice(fromIndex, 1)
+    arr.splice(toIndex, 0, moved)
+    arr.forEach((i, idx) => { i.order = idx })
+    plan.checkItems = [...arr]
+    plan.updatedAt = Date.now()
+  }
+
+  function syncWithContacts(contacts: Contact[]) {
+    for (const plan of plans.value) {
+      const names = plan.linkedContactIds
+        .map(id => contacts.find(c => c.id === id)?.name)
+        .filter(Boolean) as string[]
+      plan.linkedContactNames = names.join('、')
+      for (const item of plan.checkItems) {
+        if (item.linkedContactId) {
+          item.linkedContactName = contacts.find(c => c.id === item.linkedContactId)?.name || item.linkedContactName
+        }
+      }
+    }
+  }
+
+  function syncWithEmergencyItems(items: EmergencyItem[]) {
+    for (const plan of plans.value) {
+      const names = plan.linkedEmergencyItemIds
+        .map(id => items.find(ei => ei.id === id)?.name)
+        .filter(Boolean) as string[]
+      plan.linkedEmergencyItemNames = names.join('、')
+      for (const item of plan.checkItems) {
+        if (item.linkedEmergencyItemId) {
+          item.linkedEmergencyItemName = items.find(ei => ei.id === item.linkedEmergencyItemId)?.name || item.linkedEmergencyItemName
+        }
+      }
+    }
+  }
+
+  watch(plans, (val) => saveToStorage(STORAGE_KEY_NIGHT_CARE_PLANS, val), { deep: true })
+
+  return {
+    plans,
+    sortedPlans,
+    getPlanById,
+    createPlan,
+    updatePlan,
+    deletePlan,
+    toggleHighlight,
+    addCheckItem,
+    updateCheckItem,
+    removeCheckItem,
+    reorderCheckItems,
+    syncWithContacts,
+    syncWithEmergencyItems,
+  }
+})
+
+export const useNightCareSessionStore = defineStore('nightCareSession', () => {
+  const followUpStore = useFollowUpStore()
+  const session = ref<NightCareSession | null>(loadFromStorage<NightCareSession | null>(STORAGE_KEY_NIGHT_CARE_SESSION, null))
+  const history = ref<NightCareHistory[]>(loadFromStorage<NightCareHistory[]>(STORAGE_KEY_NIGHT_CARE_HISTORY, []))
+  const activities = ref<NightCareActivity[]>(loadFromStorage<NightCareActivity[]>(STORAGE_KEY_NIGHT_CARE_ACTIVITIES, []))
+
+  const hasActiveSession = computed(() =>
+    session.value !== null && (session.value.status === 'executing' || session.value.status === 'checking')
+  )
+
+  const remainingSteps = computed(() => {
+    if (!session.value) return 0
+    return session.value.steps.filter(s => s.status === null || (s as any).status === null || s.status === undefined || s.status === ('pending' as any)).length
+  })
+
+  const keyPointSteps = computed(() => {
+    if (!session.value) return []
+    return session.value.steps.filter(s => s.isKeyPoint)
+  })
+
+  const unconfirmedKeyPoints = computed(() => {
+    return keyPointSteps.value.filter(s => s.status !== 'confirmed')
+  })
+
+  function startSession(plan: NightCarePlan) {
+    const now = Date.now()
+    const steps: NightExecutingStep[] = plan.checkItems
+      .sort((a, b) => a.order - b.order)
+      .map(item => ({
+        itemId: item.id,
+        itemName: item.name,
+        status: ('pending' as any) as NightCareFeedback,
+        note: '',
+        linkedEmergencyItemId: item.linkedEmergencyItemId,
+        linkedEmergencyItemName: item.linkedEmergencyItemName,
+        linkedContactId: item.linkedContactId,
+        linkedContactName: item.linkedContactName,
+        isKeyPoint: item.isKeyPoint,
+        timestamp: 0,
+      }))
+    session.value = {
+      id: generateId(),
+      planId: plan.id,
+      planName: plan.name,
+      status: 'executing',
+      steps,
+      currentStepIndex: 0,
+      startedAt: now,
+      finishedAt: null,
+    }
+    addActivity('session-started', plan.id, plan.name, session.value.id, `开始执行夜间照护计划"${plan.name}"`)
+  }
+
+  function setStepStatus(stepIndex: number, status: NightCareFeedback, note: string = '') {
+    if (!session.value) return
+    const step = session.value.steps[stepIndex]
+    if (!step) return
+    const oldStatus = step.status
+    step.status = status
+    step.note = note
+    step.timestamp = Date.now()
+
+    if (status === 'need-family') {
+      const source: NightFollowUpSource = {
+        planId: session.value.planId,
+        planName: session.value.planName,
+        sessionId: session.value.id,
+        itemId: step.itemId,
+        itemName: step.itemName,
+        stepIndex,
+        linkedEmergencyItemId: step.linkedEmergencyItemId,
+        linkedEmergencyItemName: step.linkedEmergencyItemName,
+        linkedContactId: step.linkedContactId,
+        linkedContactName: step.linkedContactName,
+      }
+      followUpStore.addItem({
+        title: `夜间照护：${step.itemName} 需要家人处理`,
+        description: `老人在执行夜间照护计划"${session.value.planName}"的第${stepIndex + 1}步"${step.itemName}"时选择"需要家人处理"。${note ? '备注：' + note : ''}`,
+        priority: step.isKeyPoint ? 'high' : 'medium',
+        sourceItemId: step.linkedEmergencyItemId,
+        sourceItemName: step.linkedEmergencyItemName,
+        contactId: step.linkedContactId,
+        contactName: step.linkedContactName,
+        nightCareSource: source,
+      })
+      addActivity('session-abnormal', session.value.planId, session.value.planName, session.value.id,
+        `"${session.value.planName}"第${stepIndex + 1}步"${step.itemName}"需要家人处理`)
+    }
+
+    if (status === 'remind-later' && oldStatus === 'remind-later') {
+      const source: NightFollowUpSource = {
+        planId: session.value.planId,
+        planName: session.value.planName,
+        sessionId: session.value.id,
+        itemId: step.itemId,
+        itemName: step.itemName,
+        stepIndex,
+        linkedEmergencyItemId: step.linkedEmergencyItemId,
+        linkedEmergencyItemName: step.linkedEmergencyItemName,
+        linkedContactId: step.linkedContactId,
+        linkedContactName: step.linkedContactName,
+      }
+      followUpStore.addItem({
+        title: `夜间照护：${step.itemName} 连续延迟，请关注`,
+        description: `老人在执行夜间照护计划"${session.value.planName}"时连续两次对"${step.itemName}"选择"稍后提醒"，建议家属主动跟进。${note ? '备注：' + note : ''}`,
+        priority: 'medium',
+        sourceItemId: step.linkedEmergencyItemId,
+        sourceItemName: step.linkedEmergencyItemName,
+        contactId: step.linkedContactId,
+        contactName: step.linkedContactName,
+        nightCareSource: source,
+      })
+      addActivity('session-abnormal', session.value.planId, session.value.planName, session.value.id,
+        `"${session.value.planName}"第${stepIndex + 1}步"${step.itemName}"连续两次稍后提醒`)
+    }
+
+    if (status === 'not-clear') {
+      const source: NightFollowUpSource = {
+        planId: session.value.planId,
+        planName: session.value.planName,
+        sessionId: session.value.id,
+        itemId: step.itemId,
+        itemName: step.itemName,
+        stepIndex,
+        linkedEmergencyItemId: step.linkedEmergencyItemId,
+        linkedEmergencyItemName: step.linkedEmergencyItemName,
+        linkedContactId: step.linkedContactId,
+        linkedContactName: step.linkedContactName,
+      }
+      followUpStore.addItem({
+        title: `夜间照护：${step.itemName} 老人说没看清`,
+        description: `老人在执行夜间照护计划"${session.value.planName}"时对"${step.itemName}"表示没看清，建议家属确认该项的可识别性。${note ? '备注：' + note : ''}`,
+        priority: 'low',
+        sourceItemId: step.linkedEmergencyItemId,
+        sourceItemName: step.linkedEmergencyItemName,
+        contactId: step.linkedContactId,
+        contactName: step.linkedContactName,
+        nightCareSource: source,
+      })
+    }
+  }
+
+  function goToStep(index: number) {
+    if (!session.value) return
+    if (index >= 0 && index < session.value.steps.length) {
+      session.value.currentStepIndex = index
+    }
+  }
+
+  function nextStep() {
+    if (!session.value) return
+    const next = session.value.currentStepIndex + 1
+    if (next < session.value.steps.length) {
+      session.value.currentStepIndex = next
+    } else {
+      finishExecution()
+    }
+  }
+
+  function prevStep() {
+    if (!session.value) return
+    const prev = session.value.currentStepIndex - 1
+    if (prev >= 0) {
+      session.value.currentStepIndex = prev
+    }
+  }
+
+  function resetAllSteps() {
+    if (!session.value) return
+    for (const step of session.value.steps) {
+      (step as any).status = 'pending'
+      step.note = ''
+      step.timestamp = 0
+    }
+    session.value.currentStepIndex = 0
+    session.value.status = 'executing'
+  }
+
+  function finishExecution() {
+    if (!session.value) return
+    session.value.status = 'completed'
+    session.value.finishedAt = Date.now()
+
+    const abnormalCount = session.value.steps.filter(s => s.status !== 'confirmed').length
+    const confirmedCount = session.value.steps.filter(s => s.status === 'confirmed').length
+    const abnormalItems = session.value.steps.filter(s => s.status !== 'confirmed').map(s => `${s.itemName}（${NIGHT_CARE_FEEDBACK_LABELS[s.status]}）`).join('、')
+    const summary = `计划"${session.value.planName}"执行完成，共${session.value.steps.length}项，已确认${confirmedCount}项，异常${abnormalCount}项${abnormalItems ? '：' + abnormalItems : ''}。`
+
+    const record: NightCareHistory = {
+      id: session.value.id,
+      planId: session.value.planId,
+      planName: session.value.planName,
+      steps: JSON.parse(JSON.stringify(session.value.steps)),
+      startedAt: session.value.startedAt,
+      finishedAt: session.value.finishedAt,
+      summary,
+      abnormalCount,
+    }
+    history.value.unshift(record)
+    if (history.value.length > 50) {
+      history.value = history.value.slice(0, 50)
+    }
+    addActivity('session-completed', session.value.planId, session.value.planName, session.value.id,
+      `夜间照护计划"${session.value.planName}"执行完成${abnormalCount > 0 ? '，有' + abnormalCount + '项异常' : ''}`)
+    session.value = null
+  }
+
+  function clearSession() {
+    session.value = null
+  }
+
+  function addActivity(action: NightCareActivity['action'], planId: string, planName: string, sessionId: string | null, detail: string) {
+    activities.value.unshift({
+      id: generateId(),
+      action,
+      planId,
+      planName,
+      sessionId,
+      detail,
+      timestamp: Date.now(),
+    })
+    if (activities.value.length > 200) {
+      activities.value = activities.value.slice(0, 200)
+    }
+  }
+
+  const nightCareStats = computed<NightCareStatsData>(() => {
+    const planStore = useNightCarePlanStore()
+    const planCounts: Record<string, number> = {}
+    const abnormalDist: Record<NightCareFeedback, number> = {
+      'confirmed': 0, 'remind-later': 0, 'not-clear': 0, 'need-family': 0,
+    }
+    const completedHistory = history.value.filter(h => h.steps.length > 0)
+    for (const h of completedHistory) {
+      planCounts[h.planId] = (planCounts[h.planId] || 0) + 1
+      for (const step of h.steps) {
+        if (step.status && abnormalDist[step.status] !== undefined) {
+          abnormalDist[step.status]++
+        }
+      }
+    }
+    let keyPointTotal = 0
+    let keyPointDone = 0
+    for (const h of completedHistory) {
+      const keySteps = h.steps.filter(s => s.isKeyPoint)
+      keyPointTotal += keySteps.length
+      keyPointDone += keySteps.filter(s => s.status === 'confirmed').length
+    }
+    const totalAbnormal = Object.entries(abnormalDist).filter(([k]) => k !== 'confirmed').reduce((s, [, v]) => s + v, 0)
+    return {
+      totalPlans: planStore.plans.length,
+      highlightedPlans: planStore.plans.filter(p => p.isHighlighted).length,
+      totalSessions: history.value.length,
+      completedSessions: completedHistory.length,
+      abnormalStepDistribution: abnormalDist,
+      keyPointCompletionRate: keyPointTotal > 0 ? Math.round((keyPointDone / keyPointTotal) * 100) : 0,
+      planExecutionCounts: planCounts,
+      totalAbnormal,
+      familyHandlingCount: abnormalDist['need-family'],
+    }
+  })
+
+  watch(session, (val) => saveToStorage(STORAGE_KEY_NIGHT_CARE_SESSION, val), { deep: true })
+  watch(history, (val) => saveToStorage(STORAGE_KEY_NIGHT_CARE_HISTORY, val), { deep: true })
+  watch(activities, (val) => saveToStorage(STORAGE_KEY_NIGHT_CARE_ACTIVITIES, val), { deep: true })
+
+  return {
+    session,
+    history,
+    activities,
+    hasActiveSession,
+    remainingSteps,
+    keyPointSteps,
+    unconfirmedKeyPoints,
+    nightCareStats,
+    startSession,
+    setStepStatus,
+    goToStep,
+    nextStep,
+    prevStep,
+    resetAllSteps,
+    finishExecution,
     clearSession,
     addActivity,
   }

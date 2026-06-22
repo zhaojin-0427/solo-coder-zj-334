@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useStatsStore, useLeavingSessionStore } from '@/stores'
-import { GROUP_LABELS, GROUP_COLORS, EMERGENCY_ITEM_TYPE_LABELS, EMERGENCY_ITEM_TYPE_COLORS, FIND_FEEDBACK_LABELS, FIND_FEEDBACK_COLORS, LEAVING_SCENE_LABELS, LEAVING_SCENE_COLORS, CHECKLIST_STEP_STATUS_LABELS, CHECKLIST_STEP_STATUS_COLORS, RETURN_CONFIRM_LABELS, RETURN_CONFIRM_COLORS } from '@/types'
-import type { EmergencyItemType, FindFeedback, LeavingChecklistScene, ChecklistStepStatus, ReturnConfirmType } from '@/types'
+import { useStatsStore, useLeavingSessionStore, useNightCareSessionStore } from '@/stores'
+import { GROUP_LABELS, GROUP_COLORS, EMERGENCY_ITEM_TYPE_LABELS, EMERGENCY_ITEM_TYPE_COLORS, FIND_FEEDBACK_LABELS, FIND_FEEDBACK_COLORS, LEAVING_SCENE_LABELS, LEAVING_SCENE_COLORS, CHECKLIST_STEP_STATUS_LABELS, CHECKLIST_STEP_STATUS_COLORS, RETURN_CONFIRM_LABELS, RETURN_CONFIRM_COLORS, NIGHT_CARE_FEEDBACK_LABELS, NIGHT_CARE_FEEDBACK_COLORS } from '@/types'
+import type { EmergencyItemType, FindFeedback, LeavingChecklistScene, ChecklistStepStatus, ReturnConfirmType, NightCareFeedback } from '@/types'
 import {
   BarChart3, Users, Star, Package, Play, CheckCircle2, Clock,
   TrendingUp, Award, Heart, Phone, UserPlus, MapPin, AlertTriangle, Shield,
-  ClipboardList, LogOut, Home, AlertCircle, ListChecks, HelpCircle, ArrowLeftRight
+  ClipboardList, LogOut, Home, AlertCircle, ListChecks, HelpCircle, ArrowLeftRight,
+  Moon
 } from 'lucide-vue-next'
 
 const statsStore = useStatsStore()
 const leavingSessionStore = useLeavingSessionStore()
+const nightCareSessionStore = useNightCareSessionStore()
 
 const groupData = computed(() => {
   const entries = Object.entries(statsStore.stats.groupCounts) as [string, number][]
@@ -102,6 +104,40 @@ const returnConfirmData = computed(() => {
 
 const totalReturnConfirms = computed(() => {
   return returnConfirmData.value.reduce((sum, d) => sum + d.count, 0)
+})
+
+const nightCareStats = computed(() => nightCareSessionStore.stats)
+
+const nightCareCompletionRate = computed(() => {
+  if (nightCareStats.value.totalSessions === 0) return 0
+  return Math.round((nightCareStats.value.completedSessions / nightCareStats.value.totalSessions * 100)
+})
+
+const nightCareAbnormalData = computed(() => {
+  const entries = Object.entries(nightCareStats.value.abnormalStepDistribution) as [NightCareFeedback, number][]
+  return entries.map(([key, value]) => ({
+    key,
+    label: NIGHT_CARE_FEEDBACK_LABELS[key],
+    color: NIGHT_CARE_FEEDBACK_COLORS[key],
+    count: value,
+  }))
+})
+
+const totalNightCareAbnormal = computed(() => {
+  return nightCareAbnormalData.value.reduce((sum, d) => sum + d.count, 0)
+})
+
+const nightCarePlanExecutionData = computed(() => {
+  const entries = Object.entries(nightCareStats.value.planExecutionCounts) as [string, number][]
+  return entries.map(([key, value]) => ({
+    key,
+    label: key,
+    count: value,
+  })).filter(d => d.count > 0)
+})
+
+const maxNightCarePlanCount = computed(() => {
+  return Math.max(...nightCarePlanExecutionData.value.map(d => d.count), 1)
 })
 </script>
 
@@ -320,6 +356,128 @@ const totalReturnConfirms = computed(() => {
             <p class="text-sm text-warm-600 mt-1">{{ rc.label }}</p>
             <p v-if="totalReturnConfirms > 0" class="text-xs text-warm-400 mt-0.5">
               {{ Math.round((rc.count / totalReturnConfirms) * 100) }}%
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-2xl bg-gradient-to-br from-purple-50 to-indigo-50 p-6 border-2 border-purple-200">
+      <div class="flex items-start gap-4">
+        <div class="w-14 h-14 rounded-2xl bg-purple-500 flex items-center justify-center shrink-0">
+          <Moon class="h-7 w-7 text-white" />
+        </div>
+        <div class="flex-1">
+          <p class="text-lg font-bold text-warm-900">夜间照护统计</p>
+          <p class="text-sm text-warm-600 mt-1">查看夜间照护计划的执行情况和异常数据</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="rounded-2xl bg-white shadow-sm p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+            <Moon class="h-5 w-5 text-purple-600" />
+          </div>
+        </div>
+        <p class="text-3xl font-bold text-warm-900">{{ nightCareStats.totalPlans }}</p>
+        <p class="text-sm text-warm-500 mt-1">夜间计划数量</p>
+      </div>
+
+      <div class="rounded-2xl bg-white shadow-sm p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
+            <CheckCircle2 class="h-5 w-5 text-[#5C9460]" />
+          </div>
+        </div>
+        <p class="text-3xl font-bold text-warm-900">{{ nightCareCompletionRate }}%</p>
+        <p class="text-sm text-warm-500 mt-1">近7天完成率</p>
+      </div>
+
+      <div class="rounded-2xl bg-white shadow-sm p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
+            <AlertCircle class="h-5 w-5 text-[#D94F4F]" />
+          </div>
+        </div>
+        <p class="text-3xl font-bold text-warm-900">{{ nightCareStats.totalAbnormal }}</p>
+        <p class="text-sm text-warm-500 mt-1">异常反馈总数</p>
+      </div>
+
+      <div class="rounded-2xl bg-white shadow-sm p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+            <Shield class="h-5 w-5 text-[#E8A838]" />
+          </div>
+        </div>
+        <p class="text-3xl font-bold text-warm-900">{{ nightCareStats.keyPointCompletionRate }}%</p>
+        <p class="text-sm text-warm-500 mt-1">高风险项处理率</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="rounded-2xl bg-white shadow-sm p-5 space-y-4">
+        <h3 class="text-lg font-bold text-warm-800 flex items-center gap-2">
+          <Moon class="h-5 w-5 text-purple-600" />
+          各计划执行次数
+        </h3>
+
+        <div v-if="nightCarePlanExecutionData.length === 0" class="text-center py-6">
+          <Moon class="mx-auto mb-2 h-8 w-8 text-warm-300" />
+          <p class="text-warm-400">暂无夜间照护执行数据</p>
+          <p class="text-sm text-warm-300 mt-1">开始夜间照护后，执行次数会在这里展示</p>
+        </div>
+
+        <div v-else class="space-y-3">
+          <div
+            v-for="planItem in nightCarePlanExecutionData"
+            :key="planItem.key"
+            class="space-y-1.5"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div
+                  class="w-3 h-3 rounded-full bg-purple-500"
+                />
+                <span class="text-sm font-medium text-warm-700 truncate max-w-[180px]">{{ planItem.label }}</span>
+              </div>
+              <span class="text-sm font-bold text-warm-600">{{ planItem.count }} 次</span>
+            </div>
+            <div class="w-full h-2 bg-warm-100 rounded-full overflow-hidden">
+              <div
+                class="h-full rounded-full transition-all duration-700 bg-purple-500"
+                :style="{
+                  width: `${(planItem.count / maxNightCarePlanCount) * 100}%`,
+                }"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl bg-white shadow-sm p-5 space-y-4">
+        <h3 class="text-lg font-bold text-warm-800 flex items-center gap-2">
+          <AlertCircle class="h-5 w-5 text-[#D94F4F]" />
+          异常反馈类型分布
+        </h3>
+
+        <div v-if="totalNightCareAbnormal === 0" class="text-center py-6">
+          <HelpCircle class="mx-auto mb-2 h-8 w-8 text-warm-300" />
+          <p class="text-warm-400">暂无异常反馈数据</p>
+        </div>
+
+        <div v-else class="grid grid-cols-2 gap-3">
+          <div
+            v-for="fb in nightCareAbnormalData"
+            :key="fb.key"
+            class="rounded-xl p-4 text-center"
+            :style="{ backgroundColor: fb.color + '10' }"
+          >
+            <p class="text-2xl font-bold" :style="{ color: fb.color }">{{ fb.count }}</p>
+            <p class="text-sm text-warm-600 mt-1">{{ fb.label }}</p>
+            <p v-if="totalNightCareAbnormal > 0" class="text-xs text-warm-400 mt-0.5">
+              {{ Math.round((fb.count / totalNightCareAbnormal) * 100) }}%
             </p>
           </div>
         </div>
@@ -676,7 +834,19 @@ const totalReturnConfirms = computed(() => {
             <li v-if="leavingSessionStore.checklistStats.abnormalStepDistribution['not-found'] > 0 || leavingSessionStore.checklistStats.abnormalStepDistribution['need-help'] > 0">
               ❓ 有 {{ leavingSessionStore.checklistStats.abnormalStepDistribution['not-found'] + leavingSessionStore.checklistStats.abnormalStepDistribution['need-help'] }} 次步骤出现问题，建议优化清单内容或确认物品位置
             </li>
-            <li v-if="statsStore.stats.totalContacts >= 5 && statsStore.stats.emergencyContacts >= 3 && statsStore.stats.totalPackages >= 2 && statsStore.stats.totalEmergencyItems >= 5 && leavingSessionStore.checklistStats.totalChecklists >= 3">
+            <li v-if="nightCareStats.totalPlans === 0">
+              🌙 创建夜间照护计划，帮助老人安全度过夜晚
+            </li>
+            <li v-if="nightCareStats.totalPlans > 0 && nightCareStats.totalSessions === 0">
+              🌙 您已创建夜间照护计划，开始使用"今晚照护"模式吧
+            </li>
+            <li v-if="nightCareStats.keyPointCompletionRate < 80 && nightCareStats.totalSessions > 0">
+              ⚠️ 高风险检查项处理率较低，建议重点关注这些项目的执行
+            </li>
+            <li v-if="nightCareStats.familyHandlingCount > 0">
+              👨‍👩‍👧‍👦 有 {{ nightCareStats.familyHandlingCount }} 次需要家人处理的情况，建议及时跟进
+            </li>
+            <li v-if="statsStore.stats.totalContacts >= 5 && statsStore.stats.emergencyContacts >= 3 && statsStore.stats.totalPackages >= 2 && statsStore.stats.totalEmergencyItems >= 5 && leavingSessionStore.checklistStats.totalChecklists >= 3 && nightCareStats.totalPlans >= 3">
               👍 您的数据已经很完整了，继续保持！
             </li>
           </ul>

@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useContactStore, usePackageStore, useFollowUpStore, useDrillStore, useEmergencyStore, useLeavingSessionStore, useLeavingChecklistStore } from '@/stores'
+import { useContactStore, usePackageStore, useFollowUpStore, useDrillStore, useEmergencyStore, useLeavingSessionStore, useLeavingChecklistStore, useNightCarePlanStore, useNightCareSessionStore } from '@/stores'
 import {
   Share2, Download, Upload, Copy, Check, Users, FileText,
   AlertCircle, Smartphone, QrCode, Mail, MessageSquare, ChevronRight, MapPin, Clock, Plus, RefreshCw,
-  HeartPulse, ShoppingBag, Building2, Home, ListChecks, DoorOpen, CheckCircle2, XCircle
+  HeartPulse, ShoppingBag, Building2, Home, ListChecks, DoorOpen, CheckCircle2, XCircle,
+  Moon, Star
 } from 'lucide-vue-next'
-import type { ChecklistActivityAction } from '@/types'
+import type { ChecklistActivityAction, NightCareActivityAction } from '@/types'
 
 const contactStore = useContactStore()
 const packageStore = usePackageStore()
@@ -15,14 +16,16 @@ const drillStore = useDrillStore()
 const emergencyStore = useEmergencyStore()
 const sessionStore = useLeavingSessionStore()
 const checklistStore = useLeavingChecklistStore()
+const nightCarePlanStore = useNightCarePlanStore()
+const nightCareSessionStore = useNightCareSessionStore()
 
 const copied = ref(false)
 const shareCode = ref('')
 const importData = ref('')
 const importError = ref('')
 const activeTab = ref<'export' | 'import' | 'activity'>('activity')
-const exportType = ref<'all' | 'contacts' | 'packages' | 'emergency' | 'leaving'>('all')
-const activityFilter = ref<'all' | 'emergency' | 'leaving'>('all')
+const exportType = ref<'all' | 'contacts' | 'packages' | 'emergency' | 'leaving' | 'nightcare'>('all')
+const activityFilter = ref<'all' | 'emergency' | 'leaving' | 'nightcare'>('all')
 
 function generateShareCode() {
   const data: Record<string, unknown> = {}
@@ -42,6 +45,11 @@ function generateShareCode() {
     data.leavingSessions = sessionStore.history
     data.leavingActivities = sessionStore.activities
     data.returnConfirms = sessionStore.returnConfirms
+  }
+  if (exportType.value === 'all' || exportType.value === 'nightcare') {
+    data.nightCarePlans = nightCarePlanStore.plans
+    data.nightCareHistory = nightCareSessionStore.history
+    data.nightCareActivities = nightCareSessionStore.activities
   }
   if (exportType.value === 'all') {
     data.followUps = followUpStore.items
@@ -134,6 +142,23 @@ function importFromCode() {
       importedCount++
     }
 
+    if (data.nightCarePlans && Array.isArray(data.nightCarePlans) && data.nightCarePlans.length > 0) {
+      if (confirm(`确认导入 ${data.nightCarePlans.length} 份夜间照护计划吗？这将覆盖现有计划数据。`)) {
+        nightCarePlanStore.plans.splice(0, nightCarePlanStore.plans.length, ...data.nightCarePlans)
+        importedCount++
+      }
+    }
+
+    if (data.nightCareHistory && Array.isArray(data.nightCareHistory) && data.nightCareHistory.length > 0) {
+      nightCareSessionStore.history.splice(0, nightCareSessionStore.history.length, ...data.nightCareHistory)
+      importedCount++
+    }
+
+    if (data.nightCareActivities && Array.isArray(data.nightCareActivities) && data.nightCareActivities.length > 0) {
+      nightCareSessionStore.activities.splice(0, nightCareSessionStore.activities.length, ...data.nightCareActivities)
+      importedCount++
+    }
+
     if (data.followUps && Array.isArray(data.followUps) && data.followUps.length > 0) {
       if (confirm(`确认导入 ${data.followUps.length} 项待跟进事项吗？这将覆盖现有待办数据。`)) {
         followUpStore.items.splice(0, followUpStore.items.length, ...data.followUps)
@@ -193,12 +218,14 @@ const dataSummary = computed(() => {
     checklists: checklistStore.checklists.length,
     leavingSessions: sessionStore.history.length,
     returnConfirms: sessionStore.returnConfirms.length,
+    nightCarePlans: nightCarePlanStore.plans.length,
+    nightCareSessions: nightCareSessionStore.history.length,
   }
 })
 
 interface MergedActivity {
   id: string
-  type: 'emergency' | 'leaving'
+  type: 'emergency' | 'leaving' | 'nightcare'
   detail: string
   timestamp: number
   action: string
@@ -219,9 +246,17 @@ const recentActivities = computed<MergedActivity[]>(() => {
     timestamp: a.timestamp,
     action: a.action,
   }))
-  let merged = [...emergencyActs, ...leavingActs]
+  const nightCareActs: MergedActivity[] = nightCareSessionStore.activities.map(a => ({
+    id: 'nc-' + a.id,
+    type: 'nightcare',
+    detail: a.detail,
+    timestamp: a.timestamp,
+    action: a.action,
+  }))
+  let merged = [...emergencyActs, ...leavingActs, ...nightCareActs]
   if (activityFilter.value === 'emergency') merged = emergencyActs
   if (activityFilter.value === 'leaving') merged = leavingActs
+  if (activityFilter.value === 'nightcare') merged = nightCareActs
   return merged.sort((a, b) => b.timestamp - a.timestamp).slice(0, 30)
 })
 
@@ -270,9 +305,30 @@ const LEAVING_ACTIVITY_COLORS: Record<ChecklistActivityAction, string> = {
   'return-confirmed': '#E8A838',
 }
 
+const NIGHT_CARE_ACTIVITY_ICONS: Record<NightCareActivityAction, typeof Moon> = {
+  'plan-created': Plus,
+  'plan-updated': RefreshCw,
+  'plan-deleted': XCircle,
+  'session-started': Moon,
+  'session-abnormal': AlertCircle,
+  'session-completed': CheckCircle2,
+}
+
+const NIGHT_CARE_ACTIVITY_COLORS: Record<NightCareActivityAction, string> = {
+  'plan-created': '#5C9460',
+  'plan-updated': '#5B9BD5',
+  'plan-deleted': '#8B7355',
+  'session-started': '#7B68EE',
+  'session-abnormal': '#D94F4F',
+  'session-completed': '#7BAE7F',
+}
+
 function getActivityIcon(activity: MergedActivity) {
   if (activity.type === 'emergency') {
     return EMERGENCY_ACTIVITY_ICONS[activity.action] || Plus
+  }
+  if (activity.type === 'nightcare') {
+    return NIGHT_CARE_ACTIVITY_ICONS[activity.action as NightCareActivityAction] || Moon
   }
   return LEAVING_ACTIVITY_ICONS[activity.action as ChecklistActivityAction] || ListChecks
 }
@@ -280,6 +336,9 @@ function getActivityIcon(activity: MergedActivity) {
 function getActivityColor(activity: MergedActivity) {
   if (activity.type === 'emergency') {
     return EMERGENCY_ACTIVITY_COLORS[activity.action] || '#8B7355'
+  }
+  if (activity.type === 'nightcare') {
+    return NIGHT_CARE_ACTIVITY_COLORS[activity.action as NightCareActivityAction] || '#7B68EE'
   }
   return LEAVING_ACTIVITY_COLORS[activity.action as ChecklistActivityAction] || '#8B7355'
 }
@@ -307,7 +366,7 @@ generateShareCode()
       </div>
     </div>
 
-    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-10 gap-3">
       <div class="rounded-2xl bg-white/70 p-4 text-center">
         <Users class="h-6 w-6 mx-auto mb-2 text-[#E8652B]" />
         <p class="text-2xl font-bold text-warm-900">{{ dataSummary.contacts }}</p>
@@ -347,6 +406,16 @@ generateShareCode()
         <Home class="h-6 w-6 mx-auto mb-2 text-[#7BAE7F]" />
         <p class="text-2xl font-bold text-warm-900">{{ dataSummary.returnConfirms }}</p>
         <p class="text-sm text-warm-500">次回家确认</p>
+      </div>
+      <div class="rounded-2xl bg-white/70 p-4 text-center">
+        <Moon class="h-6 w-6 mx-auto mb-2 text-[#7B68EE]" />
+        <p class="text-2xl font-bold text-warm-900">{{ dataSummary.nightCarePlans }}</p>
+        <p class="text-sm text-warm-500">份夜间计划</p>
+      </div>
+      <div class="rounded-2xl bg-white/70 p-4 text-center">
+        <Star class="h-6 w-6 mx-auto mb-2 text-[#E8A838]" />
+        <p class="text-2xl font-bold text-warm-900">{{ dataSummary.nightCareSessions }}</p>
+        <p class="text-sm text-warm-500">次夜间巡查</p>
       </div>
     </div>
 
@@ -389,11 +458,12 @@ generateShareCode()
         <div class="space-y-2">
           <label
             v-for="opt in [
-              { value: 'all', label: '全部数据', desc: '联系人 + 资料包 + 应急物品 + 离家清单 + 待办 + 演练' },
+              { value: 'all', label: '全部数据', desc: '联系人 + 资料包 + 应急物品 + 离家清单 + 夜间照护 + 待办 + 演练' },
               { value: 'contacts', label: '仅联系人', desc: '只分享联系人信息' },
               { value: 'packages', label: '仅资料包', desc: '只分享回听资料包' },
               { value: 'emergency', label: '仅应急物品', desc: '应急物品 + 物品动态' },
               { value: 'leaving', label: '仅离家清单', desc: '离家清单 + 会话记录 + 动态' },
+              { value: 'nightcare', label: '仅夜间照护', desc: '夜间照护计划 + 巡查记录 + 动态' },
             ]"
             :key="opt.value"
             class="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors"
@@ -579,6 +649,15 @@ generateShareCode()
               : { backgroundColor: '#FFF8F0', color: '#8B7355' }"
           >
             物品
+          </button>
+          <button
+            @click="activityFilter = 'nightcare'"
+            class="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+            :style="activityFilter === 'nightcare'
+              ? { backgroundColor: '#7B68EE', color: 'white' }
+              : { backgroundColor: '#FFF8F0', color: '#8B7355' }"
+          >
+            夜间照护
           </button>
         </div>
 

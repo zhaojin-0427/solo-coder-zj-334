@@ -3,7 +3,8 @@ import { ref, computed } from 'vue'
 import { useFollowUpStore, useContactStore, useEmergencyStore } from '@/stores'
 import {
   CheckCircle2, Circle, Plus, Trash2, Clock, AlertCircle,
-  Calendar, User, ChevronDown, X, Edit2, MapPin, List, Hash, Package
+  Calendar, User, ChevronDown, X, Edit2, MapPin, List, Hash, Package,
+  Moon, Star
 } from 'lucide-vue-next'
 import type { FollowUpPriority } from '@/types'
 import { FOLLOW_UP_PRIORITY_LABELS, FOLLOW_UP_PRIORITY_COLORS, FOLLOW_UP_STATUS_LABELS } from '@/types'
@@ -218,6 +219,43 @@ const priorityOptions = [
                 </div>
               </div>
             </div>
+
+            <div
+              v-if="item.nightCareSource"
+              class="mt-3 border border-[#7B68EE]/30 rounded-xl bg-[#7B68EE]/5 p-3"
+            >
+              <div class="flex items-center gap-1.5 text-xs font-semibold text-[#6A5ACD] mb-2">
+                <Moon class="h-3.5 w-3.5" />
+                <span>夜间照护来源信息</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-warm-600">
+                <div class="flex items-center gap-1.5">
+                  <Star class="h-3 w-3 text-[#7B68EE] shrink-0" />
+                  <span class="text-warm-400">计划：</span>
+                  <span class="font-medium truncate">{{ item.nightCareSource.planName }}</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <Hash class="h-3 w-3 text-[#7B68EE] shrink-0" />
+                  <span class="text-warm-400">检查项：</span>
+                  <span class="font-medium">第 {{ item.nightCareSource.stepIndex + 1 }} 项</span>
+                </div>
+                <div class="flex items-center gap-1.5 sm:col-span-2">
+                  <Moon class="h-3 w-3 text-[#7B68EE] shrink-0" />
+                  <span class="text-warm-400">检查项名称：</span>
+                  <span class="font-medium truncate">{{ item.nightCareSource.itemName }}</span>
+                </div>
+                <div v-if="item.nightCareSource.linkedEmergencyItemName" class="flex items-center gap-1.5">
+                  <Package class="h-3 w-3 text-[#7B68EE] shrink-0" />
+                  <span class="text-warm-400">关联物品：</span>
+                  <span class="font-medium truncate">{{ item.nightCareSource.linkedEmergencyItemName }}</span>
+                </div>
+                <div v-if="item.nightCareSource.linkedContactName" class="flex items-center gap-1.5">
+                  <User class="h-3 w-3 text-[#7B68EE] shrink-0" />
+                  <span class="text-warm-400">关联联系人：</span>
+                  <span class="font-medium truncate">{{ item.nightCareSource.linkedContactName }}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="flex items-center gap-1 shrink-0">
@@ -305,6 +343,43 @@ const priorityOptions = [
                   <User class="h-3 w-3 text-[#5B9BD5] shrink-0" />
                   <span class="text-warm-400">联系人：</span>
                   <span class="font-medium truncate">{{ item.checklistSource.linkedContactName }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div
+              v-if="item.nightCareSource"
+              class="mt-3 border border-[#7B68EE]/25 rounded-xl bg-[#7B68EE]/5 p-3"
+            >
+              <div class="flex items-center gap-1.5 text-xs font-semibold text-[#6A5ACD] mb-2">
+                <Moon class="h-3.5 w-3.5" />
+                <span>夜间照护来源信息</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-warm-500">
+                <div class="flex items-center gap-1.5">
+                  <Star class="h-3 w-3 text-[#7B68EE] shrink-0" />
+                  <span class="text-warm-400">计划：</span>
+                  <span class="font-medium truncate">{{ item.nightCareSource.planName }}</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <Hash class="h-3 w-3 text-[#7B68EE] shrink-0" />
+                  <span class="text-warm-400">检查项：</span>
+                  <span class="font-medium">第 {{ item.nightCareSource.stepIndex + 1 }} 项</span>
+                </div>
+                <div class="flex items-center gap-1.5 sm:col-span-2">
+                  <Moon class="h-3 w-3 text-[#7B68EE] shrink-0" />
+                  <span class="text-warm-400">检查项名称：</span>
+                  <span class="font-medium truncate">{{ item.nightCareSource.itemName }}</span>
+                </div>
+                <div v-if="item.nightCareSource.linkedEmergencyItemName" class="flex items-center gap-1.5">
+                  <Package class="h-3 w-3 text-[#7B68EE] shrink-0" />
+                  <span class="text-warm-400">关联物品：</span>
+                  <span class="font-medium truncate">{{ item.nightCareSource.linkedEmergencyItemName }}</span>
+                </div>
+                <div v-if="item.nightCareSource.linkedContactName" class="flex items-center gap-1.5">
+                  <User class="h-3 w-3 text-[#7B68EE] shrink-0" />
+                  <span class="text-warm-400">关联联系人：</span>
+                  <span class="font-medium truncate">{{ item.nightCareSource.linkedContactName }}</span>
                 </div>
               </div>
             </div>
